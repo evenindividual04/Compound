@@ -125,13 +125,29 @@ Sources & cadence: quick entry (P1, ≤3 taps, offline outbox) · bank CSV/XLS/P
 
 Auto-ingested entries land `pending` with a badge count. 30-second sweep: swipe right = accept suggested category, swipe left = pick, long-press = bulk. Explicit "All caught up ✓" empty state. Two trust rules: the categorizer **abstains instead of guessing** below confidence; **every correction becomes permanent training signal** (rule or embedding example). Transfers and anomalies confirm here too.
 
-## 7. AI layer (deterministic core, AI at the edges)
+## 7. Agentic system (deterministic core, agents at the edges)
 
-- **Categorization tiers:** T0 user rules (instant, free, ~60-80%) → T1 local embeddings k-NN over the user's own labeled history, confidence-gated → T2 small-LLM fallback (few-shot from own history, closed category list, batched, abstains). Provider-agnostic via AI SDK.
-- **Ask:** chat over ~12 read-only typed query tools (`spending_by_category`, `net_worth_at`, `xirr`, `recurring_charges`, …). The model narrates; SQL computes; the LLM never does arithmetic and never writes. Same tools exposed as an **MCP server** → Claude or any MCP client becomes the finance assistant.
-- **Notice:** statistics decide anomalies (recurring-charge price hike, duplicate charge, category > 2σ vs trailing 3-month baseline; recurring detection = merchant + amount-tolerance + cadence clustering, 3-occurrence maturity); the LLM writes the one-sentence explanation only.
-- **Recap:** one Sunday ~6pm IST digest email (Vercel cron + Resend): spent vs last week, top 3 categories, unreviewed count, one anomaly — every figure deep-links. No drip push notifications (research: nudges reduce long-term engagement; iOS PWA push is unreliable anyway).
-- **Privacy:** allowlist fields to any cloud LLM (amounts/categories/dates yes; names/account numbers never); embeddings local.
+Not a chatbot feature — a substrate that many agents run on. Four shared components, built once in P4:
+
+1. **Tool registry.** Read-only typed query tools over the ledger (`spending_by_category`, `net_worth_at`, `xirr`, `recurring_charges`, `holdings`, `loan_status`, `goal_progress`, …) plus **proposal tools** (draft-write: propose recategorization, propose rule, propose budget change, propose valuation anchor). The same registry is exposed three ways: in-app chat, scheduled agent runs, and an **MCP server** so Claude or any MCP client becomes a finance assistant for free.
+2. **Proposal queue.** Agents never write to the ledger. Every agent-initiated change is a proposal that surfaces in the review inbox for one-tap approve/reject — the same muscle memory as transaction review. Approved proposals execute through the same validated write path as manual edits and land in `entry_events` with `source=agent:<name>`.
+3. **Triggers.** Scheduled (Vercel crons), event-driven (import committed, anomaly detected, NAV refresh done), and on-demand (chat / MCP).
+4. **Run log.** Every agent run recorded: trigger, tools called with arguments, output, model + token cost. Any number an agent states must trace to a tool receipt in the log — unverifiable claims are a bug.
+
+**Agent roster** (each is small; the substrate does the heavy lifting):
+
+| Agent | Trigger | Does | Phase |
+|---|---|---|---|
+| Categorizer | import committed | T0 rules → T1 local embeddings k-NN over own corrections (confidence-gated) → T2 small-LLM fallback, closed category list, abstains when unsure | P3 |
+| Template writer | unknown email layout | writes a new regex template once; deterministic parsing thereafter | P3 |
+| Hygiene | nightly | preps the review inbox: dedup suspicions, unmatched transfers, stale anchors (e.g. "EPF anchor is 9 months old") | P4 |
+| Notice | daily after rollups | statistics decide anomalies (price-hike on recurring charge, duplicate, category > 2σ vs trailing baseline); LLM writes the one-sentence explanation only | P4 |
+| Recap | Sunday ~6pm IST cron | digest email: spent vs last week, top 3 categories, unreviewed count, one anomaly — every figure deep-links. No drip push notifications | P4 |
+| Ask | on demand | conversational Q&A over the tool registry; narrates, never computes | P4 |
+| Product evaluator | on demand | see §10 — policy-document-grounded IRR analysis of pitched products | P5 |
+| Planner | monthly + on demand | quarterly-style review: emergency-fund runway, prepay-vs-invest (80E math), SIP step-up, tax regime check, goal drift; outputs analysis + proposals | P5 |
+
+**Hard rules for every agent:** no money movement, ever (not in scope at any phase); no ledger writes without human approval; all arithmetic via tools (LLM never computes); product/market facts come from fetched documents, never model memory; PII allowlist on anything sent to a cloud model (amounts/categories/dates yes; names/account numbers never); embeddings local. Provider-agnostic via Vercel AI SDK / AI Gateway — model choice is a config knob, not architecture.
 
 ## 8. Experience
 
@@ -154,8 +170,10 @@ Mobile-first PWA, dark-first with light mode, installable (iOS coach-mark for Ad
 | **P1 Core ledger + PWA** | auth, accounts, quick entry, bank CSV/XLS/PDF import pipeline, review inbox, rules, categories, simple monthly budgets, hero-number dashboard, invariant cron, backups | ~2 wks — live before first paycheck |
 | **P2 Investments + net worth** | CAS ingestion (MF/equity/NPS), instruments + AMFI/NSE price crons, holdings replay, XIRR, net worth chart, valuation anchors UI (EPF/FD/gold/loan) | ~1-2 wks |
 | **P3 Auto-ingestion + smart categorize** | Gmail readonly polling + per-bank templates, embeddings tier, LLM fallback, learning loop | ~2 wks |
-| **P4 Ask · Notice · Recap** | query tools + chat, MCP server, anomaly cards, Sunday digest, Kite sync | ~2 wks |
-| **P5 Plan (22-year-old edition)** | safe-to-spend, emergency-fund runway, first-SIP planning, edu-loan prepay-vs-invest with 80E math, new-vs-old tax regime, "can I afford X", envelope budgets if wanted | ongoing |
+| **P4 Agent substrate + first agents** | tool registry, proposal queue, triggers, run log, MCP server; Hygiene + Notice + Recap + Ask agents; Kite sync | ~2 wks |
+| **P5 Plan (22-year-old edition)** | safe-to-spend, emergency-fund runway, first-SIP planning, edu-loan prepay-vs-invest with 80E math, new-vs-old tax regime, "can I afford X", envelope budgets if wanted, **product evaluator agent** (below) | ongoing |
+
+**Product evaluator agent (P5, deferred by choice):** given a financial product pitch (insurance/ULIP/endowment plan, FD scheme, NPS tier), the agent fetches the actual policy terms, extracts the premium/payout schedule, computes real IRR **deterministically through the same math engine as the ledger** (never LLM arithmetic), compares against benchmark alternatives (term + index SIP, FD), and assesses fit against full ledger context (income, holdings, edu-loan, emergency fund) via the same read-only query tools as Ask. Output is analysis with visible arithmetic, not advice; product terms must come from fetched documents, never from model memory. Recorded now so P4's tool layer is designed to feed it.
 
 ## 11. Success criteria
 
