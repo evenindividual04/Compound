@@ -119,7 +119,7 @@ One staged pipeline for every source; nothing writes to the ledger directly:
 - **Preview → commit:** "23 new, 4 duplicates, 1 suspicious" before anything lands; imports undoable as a unit.
 - **Statement files are parsed and discarded** — structured rows with masked numbers only; no PDF archive in cloud storage.
 
-Sources & cadence: quick entry (P1, ≤3 taps, offline outbox) · bank CSV/XLS/PDF upload (P1, weekly/monthly) · CAS mailback (P2, monthly) · AMFI NAV + NSE EOD cron (P2, daily, zero user action) · Gmail readonly OAuth polling (P3, ~15 min) · Kite personal API tap-to-sync / Console CSV (P4). SMS via Android forwarder: optional experiment, not on the critical path. Account Aggregator: design import contracts to be AA-compatible (ReBIT-ish shapes), but AA is product-stage only.
+Sources & cadence: quick entry (P1, ≤3 taps, offline outbox) · bank CSV/XLS/PDF upload (P1, weekly/monthly) · CAS mailback (P2, monthly) · AMFI NAV + NSE EOD cron (P2, daily, zero user action) · Gmail readonly OAuth polling (P3, ~15 min) · Kite personal API tap-to-sync / Console CSV (P4). SMS via local Mac bridge (P1.5, near-real-time): owner is iPhone+UPI so bank/UPI/card/BNPL SMS — mirrored to the Mac via Text Forwarding, read from chat.db — is the primary live feed and beats Gmail; reuses the import pipeline. See `2026-06-12-sms-ingestion-bridge.md`. Account Aggregator: design import contracts to be AA-compatible (ReBIT-ish shapes), but AA is product-stage only.
 
 ## 6. Review inbox (the daily heartbeat)
 
@@ -168,6 +168,7 @@ Mobile-first PWA, dark-first with light mode, installable (iOS coach-mark for Ad
 | Phase | Scope | Target |
 |---|---|---|
 | **P1 Core ledger + PWA** | auth, accounts, quick entry, bank CSV/XLS/PDF import pipeline, review inbox, rules, categories, simple monthly budgets, hero-number dashboard, invariant cron, backups | ~2 wks — live before first paycheck |
+| **P1.5 SMS bridge** | real-time bank/UPI/card/BNPL SMS capture via local Mac bridge (Text Forwarding + chat.db) → `/api/ingest/sms` → existing pipeline → inbox; reuses staging/dedup. Owner is iPhone+UPI, so SMS beats Gmail. See `2026-06-12-sms-ingestion-bridge.md` | ~weekend — after the UI reskin, before P3 |
 | **P2 Investments + net worth** | CAS ingestion (MF/equity/NPS), instruments + AMFI/NSE price crons, holdings replay, XIRR, net worth chart, valuation anchors UI (EPF/FD/gold/loan) | ~1-2 wks |
 | **P3 Auto-ingestion + smart categorize** | Gmail readonly polling + per-bank templates, embeddings tier, LLM fallback, learning loop | ~2 wks |
 | **P4 Agent substrate + first agents** | tool registry, proposal queue, triggers, run log, MCP server; Hygiene + Notice + Recap + Ask agents; Kite sync | ~2 wks |
