@@ -9,6 +9,7 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import type { Db } from "@/db";
 import * as schema from "@/db/schema";
 import { cmp, isZero, sub } from "@/lib/money";
+import { computeBalanceAt } from "./derive";
 
 // Accept either the root client or a transaction handle.
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
@@ -82,31 +83,6 @@ export async function createTransaction(db: Db, input: NewTransaction): Promise<
     await logEvent(tx, entry.id, "created", null, input.amount, input.source ?? "manual");
     return entry.id;
   });
-}
-
-/**
- * Derived balance at end of `date`: opening + Σ posted/reconciled transaction|trade deltas.
- * Valuations are anchors, never deltas; pending entries don't count yet.
- */
-export async function computeBalanceAt(
-  ex: Executor,
-  accountId: string,
-  date: string,
-): Promise<string> {
-  const res = await ex.execute(sql`
-    SELECT (a.opening_balance + COALESCE((
-      SELECT SUM(e.amount) FROM entries e
-      WHERE e.account_id = a.id
-        AND e.entry_type IN ('transaction', 'trade')
-        AND e.status <> 'pending'
-        AND e.deleted_at IS NULL
-        AND e.date <= ${date}
-    ), 0))::numeric(19,4)::text AS bal
-    FROM accounts a WHERE a.id = ${accountId}
-  `);
-  const row = (res as { rows: { bal: string }[] }).rows[0];
-  if (!row) throw new Error("account not found");
-  return row.bal;
 }
 
 export interface NewValuation {
