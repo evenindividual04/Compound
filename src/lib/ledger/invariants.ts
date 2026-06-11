@@ -59,7 +59,7 @@ async function countOpen(db: Db, kind: AnomalyKind): Promise<number> {
     SELECT COUNT(*)::int AS n FROM ledger_anomalies
     WHERE kind = ${kind} AND resolved_at IS NULL
   `);
-  return (res as unknown as { rows: { n: number }[] }).rows[0].n;
+  return (res as unknown as unknown as { rows: { n: number }[] }).rows[0].n;
 }
 
 // ---- checks -----------------------------------------------------------------

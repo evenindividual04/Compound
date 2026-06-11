@@ -32,7 +32,7 @@ export async function computeBalanceAt(
     ), 0))::numeric(19,4)::text AS bal
     FROM accounts a WHERE a.id = ${accountId}
   `);
-  const row = (res as { rows: { bal: string }[] }).rows[0];
+  const row = (res as unknown as { rows: { bal: string }[] }).rows[0];
   if (!row) throw new Error("account not found");
   return row.bal;
 }
@@ -51,7 +51,7 @@ export async function rebuildBalances(db: Db, accountId: string, fromDate: strin
       FROM entries e
       WHERE e.account_id = ${accountId} AND e.deleted_at IS NULL
     `);
-    const endDate = (meta as { rows: { end_date: string }[] }).rows[0].end_date;
+    const endDate = (meta as unknown as { rows: { end_date: string }[] }).rows[0].end_date;
     if (fromDate > endDate) return;
 
     // balance at the day before the window
@@ -70,7 +70,7 @@ export async function rebuildBalances(db: Db, accountId: string, fromDate: strin
       GROUP BY e.date
     `);
     const deltaByDate = new Map(
-      (deltas as { rows: { d: string; delta: string }[] }).rows.map((r) => [r.d, r.delta]),
+      (deltas as unknown as { rows: { d: string; delta: string }[] }).rows.map((r) => [r.d, r.delta]),
     );
 
     const rows: { accountId: string; date: string; balance: string }[] = [];
@@ -109,7 +109,7 @@ export async function netWorth(ex: Executor, householdId: string, date: string):
     ) s ON true
     WHERE a.household_id = ${householdId} AND a.status = 'active' AND NOT a.excluded
   `);
-  return (res as { rows: { nw: string }[] }).rows[0].nw;
+  return (res as unknown as { rows: { nw: string }[] }).rows[0].nw;
 }
 
 /**
@@ -154,7 +154,7 @@ export async function rebuildRollups(
           SELECT inflow_entry_id FROM transfers
         )
     `);
-    const maxMonthRaw = (meta as { rows: { max_month: string | null }[] }).rows[0].max_month;
+    const maxMonthRaw = (meta as unknown as { rows: { max_month: string | null }[] }).rows[0].max_month;
 
     // If no entries exist from fromMonth onward, nothing to insert
     if (!maxMonthRaw) return;

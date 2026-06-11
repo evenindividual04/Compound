@@ -71,7 +71,7 @@ export async function proposeTransfers(db: Db, householdId: string): Promise<num
       ORDER BY ABS(a.date::date - b.date::date) ASC, a.date ASC
     `);
 
-    const rows = (res as unknown as { rows: {
+    const rows = (res as unknown as unknown as { rows: {
       outflow_entry_id: string;
       inflow_entry_id: string;
       date_diff: number | string;

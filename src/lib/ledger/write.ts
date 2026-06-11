@@ -111,7 +111,7 @@ export async function createValuation(
       WHERE e.account_id = ${input.accountId} AND e.status = 'pending'
         AND e.deleted_at IS NULL AND t.is_adjustment AND e.date <= ${input.date}
     `);
-    const pendingAmt = (pendingAdj as { rows: { amt: string }[] }).rows[0].amt;
+    const pendingAmt = (pendingAdj as unknown as { rows: { amt: string }[] }).rows[0].amt;
     const derived = sub(derivedPosted, sub("0", pendingAmt)); // derivedPosted + pendingAmt
     const gap = sub(input.amount, derived);
 
