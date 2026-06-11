@@ -19,23 +19,22 @@ describe("money arithmetic (strings in, strings out)", () => {
 
 describe("formatINR (en-IN, lakh/crore)", () => {
   // Note: Intl.NumberFormat("en-IN", {style:"currency",currency:"INR"}) on this Node version
-  // produces no space after ₹ symbol (e.g. "₹1,23,456.78" not "₹ 1,23,456.78").
+  // produces no space after ₹ symbol (e.g. "₹1,23,457" not "₹ 1,23,457").
   // Negative amounts: Intl produces "-₹5,000" with a regular hyphen, but our impl
   // wraps abs() value with a typographic minus (U+2212) prefix: "−₹5,000".
   //
-  // Paise rule: <₹1,000 → keep paise (fmt2); ₹1,000–₹99,999 → drop paise/round (fmt0);
-  // ≥₹1,00,000 → keep paise (fmt2). Rationale: at ≥1L scale the exact paise are still
-  // shown ("groups 3-2-2" test verifies grouping on a 6-digit amount with paise).
-  it("groups 3-2-2 and keeps paise ≥ 1L", () => expect(formatINR("123456.78")).toBe("₹1,23,456.78"));
-  it("drops paise ≥ ₹1,000 (< 1L)", () => expect(formatINR("1234.56")).toBe("₹1,235"));
+  // Paise rule (per design spec): < ₹1,000 → keep paise (2dp); ≥ ₹1,000 → drop
+  // paise, rounding to the whole rupee.
+  it("groups 3-2-2", () => expect(formatINR("123456.78")).toBe("₹1,23,457"));
+  it("drops paise ≥ ₹1,000", () => expect(formatINR("1234.56")).toBe("₹1,235"));
   it("keeps paise < ₹1,000", () => expect(formatINR("342.50")).toBe("₹342.50"));
   it("negative", () => expect(formatINR("-5000")).toBe("−₹5,000"));
   // edge cases
   it("zero", () => expect(formatINR("0")).toBe("₹0.00"));
   it("half-rupee < 1000", () => expect(formatINR("0.5")).toBe("₹0.50"));
   it("exactly 1000", () => expect(formatINR("1000")).toBe("₹1,000"));
-  it("exactly 99999.99", () => expect(formatINR("99999.99")).toBe("₹1,00,000"));
-  it("exactly 100000", () => expect(formatINR("100000")).toBe("₹1,00,000.00"));
+  it("exactly 99999.99 rounds up", () => expect(formatINR("99999.99")).toBe("₹1,00,000"));
+  it("exactly 100000", () => expect(formatINR("100000")).toBe("₹1,00,000"));
   it("negative compact boundary", () => expect(formatINR("-342.50")).toBe("−₹342.50"));
 });
 

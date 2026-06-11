@@ -13,10 +13,9 @@ export const cmp = (a: string, b: string) => D(a).comparedTo(b) as -1 | 0 | 1;
 export const isZero = (a: string) => D(a).isZero();
 export const abs = (a: string) => out(D(a).abs());
 
-// Paise (fractional) display rules:
-//   < ₹1,000                → keep paise (2 decimal places)
-//   ₹1,000 – ₹99,999.99    → drop paise, round (0 decimal places)
-//   ≥ ₹1,00,000 (1 lakh)   → keep paise (2 decimal places)
+// Paise (fractional) display rule:
+//   < ₹1,000  → keep paise (2 decimal places)
+//   ≥ ₹1,000  → drop paise, round to whole rupee (0 decimal places)
 //
 // Negative sign: we strip the sign, format the absolute value, then prepend
 // a typographic minus (U+2212) so the ₹ symbol stays adjacent to the digits.
@@ -33,7 +32,6 @@ const inr = (min: number, max: number) =>
 
 const INR_FMT0 = inr(0, 0);
 const INR_FMT2 = inr(2, 2);
-const LAKH = 100_000;
 const THOUSAND = 1_000;
 
 export function formatINR(amount: string): string {
@@ -41,8 +39,7 @@ export function formatINR(amount: string): string {
   const a = d.abs();
   const n = a.toNumber();
 
-  const formatted =
-    n >= LAKH || n < THOUSAND ? INR_FMT2.format(n) : INR_FMT0.format(n);
+  const formatted = n < THOUSAND ? INR_FMT2.format(n) : INR_FMT0.format(n);
 
   return d.isNegative() ? `−${formatted}` : formatted;
 }
