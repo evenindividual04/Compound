@@ -10,7 +10,7 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen bg-black flex items-center justify-center">
       <div className="flex flex-col items-center gap-6">
-        <h1 className="text-white text-2xl font-semibold tracking-tight">fin</h1>
+        <h1 className="text-white text-2xl font-semibold tracking-tight">compound</h1>
         <button
           onClick={handleGoogleSignIn}
           className="flex items-center gap-3 px-5 py-3 bg-white text-gray-900 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"

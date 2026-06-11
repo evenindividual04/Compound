@@ -1,6 +1,6 @@
 {
-  "name": "Fin",
-  "short_name": "Fin",
+  "name": "Compound",
+  "short_name": "Compound",
   "description": "Personal finance — simple, fast, private.",
   "start_url": "/",
   "display": "standalone",

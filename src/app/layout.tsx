@@ -13,12 +13,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Fin",
+  title: "Compound",
   description: "Personal finance — simple, fast, private.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    title: "Fin",
+    title: "Compound",
     statusBarStyle: "black-translucent",
   },
   icons: {
