@@ -80,7 +80,7 @@ Module boundaries: `lib/ledger/*` and `lib/money.ts` are pure (no Next.js import
 
 ```bash
 pnpm create next-app@latest . --ts --tailwind --eslint --app --src-dir --import-alias "@/*" --no-turbopack
-pnpm add drizzle-orm @neondatabase/serverless better-auth decimal.js-light zod @t3-oss/env-nextjs date-fns papaparse xlsx nanoid
+pnpm add drizzle-orm @neondatabase/serverless better-auth decimal.js-light zod @t3-oss/env-nextjs date-fns papaparse exceljs nanoid
 pnpm add -D drizzle-kit vitest @vitest/coverage-v8 @types/papaparse dotenv-cli
 ```
 
@@ -696,7 +696,7 @@ export const config: VercelConfig = { crons: [{ path: "/api/cron/invariants", sc
 
 **Files:** Create: `src/lib/import/parse.ts`, `mapping.ts`, `validate.ts` + tests; fixtures under `src/lib/import/__fixtures__/` (hand-make HDFC-style and ICICI-style CSV/XLS samples with fake data, incl. a deliberate balance-discontinuity row and a duplicate row).
 
-- [ ] **Step 1: Failing tests:** `parseFile(buffer, filename)` → `{ headers, rows }` for CSV (papaparse) and XLS/XLSX (xlsx `sheet_to_json`, first sheet, header-row autodetect: first row where ≥3 cells non-empty); `applyMapping(rows, mapping)` with `ColumnMapping = { date: string; description: string; amount?: string; debit?: string; credit?: string; balance?: string; ref?: string; dateFormat: "dd/MM/yyyy" | "dd-MM-yyyy" | "yyyy-MM-dd" | "dd MMM yyyy" }` → normalized `{date, amount(signed: debit→negative), description, externalId?, balance?}` (amounts cleaned of `₹ , Cr Dr` noise as **strings**, `date-fns/parse`); `validateContinuity(rows)` → ok with rows in either statement order (detect direction by comparing balances), flags index of first row where `prevBalance + amount ≠ balance` (tolerance 0.01), skips when no balance column (returns `{checked:false}`).
+- [ ] **Step 1: Failing tests:** `parseFile(buffer, filename)` → `{ headers, rows }` for CSV (papaparse) and XLSX (exceljs `workbook.xlsx.load`, first worksheet, header-row autodetect: first row where ≥3 cells non-empty; legacy `.xls` binaries: reject with "please export as CSV or XLSX" — exceljs is XLSX-only and the xlsx npm package is banned for unpatched CVEs); `applyMapping(rows, mapping)` with `ColumnMapping = { date: string; description: string; amount?: string; debit?: string; credit?: string; balance?: string; ref?: string; dateFormat: "dd/MM/yyyy" | "dd-MM-yyyy" | "yyyy-MM-dd" | "dd MMM yyyy" }` → normalized `{date, amount(signed: debit→negative), description, externalId?, balance?}` (amounts cleaned of `₹ , Cr Dr` noise as **strings**, `date-fns/parse`); `validateContinuity(rows)` → ok with rows in either statement order (detect direction by comparing balances), flags index of first row where `prevBalance + amount ≠ balance` (tolerance 0.01), skips when no balance column (returns `{checked:false}`).
 - [ ] **Step 2:** FAIL → **Step 3:** implement → **Step 4:** PASS.
 - [ ] **Step 5: Commit** — `feat: csv/xls statement parsing with mapping and continuity validation`
 
