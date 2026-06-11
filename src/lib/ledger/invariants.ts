@@ -15,6 +15,7 @@ import { createHash } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { Db } from "@/db";
 import { computeBalanceAt } from "./derive";
+import { add, sub, abs, cmp } from "@/lib/money";
 
 export type AnomalyKind =
   | "orphan_transfer_leg"
@@ -246,10 +247,10 @@ async function checkAnchorResidual(db: Db): Promise<AnomalyRow[]> {
 
   const anomalies: AnomalyRow[] = [];
   for (const r of rows) {
-    const derived =
-      parseFloat(r.posted_balance) + parseFloat(r.pending_adj);
-    const residual = parseFloat(r.anchor_amount) - derived;
-    if (Math.abs(residual) > 0.01) {
+    // money stays in the decimal domain — float64 cannot represent NUMERIC(19,4)
+    const derived = add(r.posted_balance, r.pending_adj);
+    const residual = sub(r.anchor_amount, derived);
+    if (cmp(abs(residual), "0.01") > 0) {
       anomalies.push({
         kind: "anchor_residual",
         detail: {
@@ -257,8 +258,8 @@ async function checkAnchorResidual(db: Db): Promise<AnomalyRow[]> {
           accountId: r.account_id,
           anchorDate: r.anchor_date,
           anchorAmount: r.anchor_amount,
-          derivedBalance: derived.toFixed(4),
-          residual: residual.toFixed(4),
+          derivedBalance: derived,
+          residual,
         },
       });
     }
@@ -365,7 +366,7 @@ async function checkStaleSeries(db: Db): Promise<AnomalyRow[]> {
       accountId: r.account_id,
       cachedDate: r.cached_date,
       cachedBalance: r.cached_balance,
-      recomputed: parseFloat(r.recomputed).toFixed(4),
+      recomputed: add(r.recomputed, "0"), // normalize to 4dp in the decimal domain
     },
   }));
 }

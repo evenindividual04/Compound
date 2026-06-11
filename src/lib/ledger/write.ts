@@ -8,7 +8,7 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import type { Db } from "@/db";
 import * as schema from "@/db/schema";
-import { cmp, isZero, sub } from "@/lib/money";
+import { add, cmp, isZero, sub } from "@/lib/money";
 import { computeBalanceAt } from "./derive";
 
 // Accept either the root client or a transaction handle.
@@ -112,7 +112,7 @@ export async function createValuation(
         AND e.deleted_at IS NULL AND t.is_adjustment AND e.date <= ${input.date}
     `);
     const pendingAmt = (pendingAdj as unknown as { rows: { amt: string }[] }).rows[0].amt;
-    const derived = sub(derivedPosted, sub("0", pendingAmt)); // derivedPosted + pendingAmt
+    const derived = add(derivedPosted, pendingAmt);
     const gap = sub(input.amount, derived);
 
     let adjustmentEntryId: string | null = null;
@@ -204,7 +204,12 @@ export async function annotate(
           if (patch.categoryId) await assertSignMatchesCategory(tx, patch.categoryId, entry.amount);
           await tx
             .update(schema.transactions)
-            .set({ categoryId: patch.categoryId, categoryLocked: isUser ? true : txn.categoryLocked })
+            // lock only when a user sets a REAL category; clearing to null leaves
+            // the field open for rules to categorize later
+            .set({
+              categoryId: patch.categoryId,
+              categoryLocked: isUser && patch.categoryId !== null ? true : txn.categoryLocked,
+            })
             .where(eq(schema.transactions.entryId, entryId));
           await logEvent(tx, entryId, "categoryId", txn.categoryId, patch.categoryId, source);
         }

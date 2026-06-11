@@ -162,6 +162,8 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("invariant checks", () => {
     expect(adjustmentEntryId).not.toBeNull();
 
     // hard-delete the adjustment rows to simulate corruption
+    // the audit-log FK (RESTRICT) blocks entry hard-deletes — clear events first
+    await tdb.execute(sql`DELETE FROM entry_events WHERE entry_id = ${adjustmentEntryId}`);
     await tdb.execute(sql`DELETE FROM transactions WHERE entry_id = ${adjustmentEntryId}`);
     await tdb.execute(sql`DELETE FROM entries WHERE id = ${adjustmentEntryId}`);
 

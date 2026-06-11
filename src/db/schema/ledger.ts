@@ -49,16 +49,20 @@ export const entries = pgTable(
   ],
 );
 
-export const transactions = pgTable("transactions", {
-  entryId: uuid("entry_id")
-    .primaryKey()
-    .references(() => entries.id, { onDelete: "cascade" }),
-  categoryId: uuid("category_id").references(() => categories.id),
-  merchant: text("merchant"),
-  // typed lock: once a user sets the category, rules/imports never overwrite it
-  categoryLocked: boolean("category_locked").notNull().default(false),
-  isAdjustment: boolean("is_adjustment").notNull().default(false),
-});
+export const transactions = pgTable(
+  "transactions",
+  {
+    entryId: uuid("entry_id")
+      .primaryKey()
+      .references(() => entries.id, { onDelete: "cascade" }),
+    categoryId: uuid("category_id").references(() => categories.id),
+    merchant: text("merchant"),
+    // typed lock: once a user sets the category, rules/imports never overwrite it
+    categoryLocked: boolean("category_locked").notNull().default(false),
+    isAdjustment: boolean("is_adjustment").notNull().default(false),
+  },
+  (t) => [index("transactions_category").on(t.categoryId)],
+);
 
 export const transactionSplits = pgTable("transaction_splits", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -109,7 +113,10 @@ export const entryEvents = pgTable(
   "entry_events",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    entryId: uuid("entry_id").notNull(),
+    // RESTRICT: the audit log blocks hard-deletes of entries, never vice versa
+    entryId: uuid("entry_id")
+      .notNull()
+      .references(() => entries.id, { onDelete: "restrict" }),
     field: text("field").notNull(),
     oldValue: text("old_value"),
     newValue: text("new_value"),

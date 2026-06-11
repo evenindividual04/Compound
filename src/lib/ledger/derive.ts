@@ -44,7 +44,8 @@ export async function computeBalanceAt(
  */
 export async function rebuildBalances(db: Db, accountId: string, fromDate: string): Promise<void> {
   await db.transaction(async (tx) => {
-    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${accountId}::text))`);
+    // namespace 1 = account locks; two-arg form avoids cross-domain hash collisions
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(1, hashtext(${accountId}::text))`);
 
     const meta = await tx.execute(sql`
       SELECT GREATEST(CURRENT_DATE, COALESCE(MAX(e.date), CURRENT_DATE))::text AS end_date
@@ -129,7 +130,8 @@ export async function rebuildRollups(
   fromMonth: string,
 ): Promise<void> {
   await db.transaction(async (tx) => {
-    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${householdId}::text))`);
+    // namespace 2 = household locks (see rebuildBalances for namespace 1)
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(2, hashtext(${householdId}::text))`);
 
     // Delete existing rollup rows for this household from fromMonth onward
     await tx.execute(sql`
@@ -148,11 +150,10 @@ export async function rebuildRollups(
         AND e.status <> 'pending'
         AND e.deleted_at IS NULL
         AND e.date >= ${fromMonth}::date
-        AND e.id NOT IN (
-          SELECT outflow_entry_id FROM transfers
-          UNION ALL
-          SELECT inflow_entry_id FROM transfers
-        )
+        AND NOT EXISTS (
+            SELECT 1 FROM transfers tr
+            WHERE tr.outflow_entry_id = e.id OR tr.inflow_entry_id = e.id
+          )
     `);
     const maxMonthRaw = (meta as unknown as { rows: { max_month: string | null }[] }).rows[0].max_month;
 
@@ -180,10 +181,9 @@ export async function rebuildRollups(
           AND e.status <> 'pending'
           AND e.deleted_at IS NULL
           AND e.date >= ${fromMonth}::date
-          AND e.id NOT IN (
-            SELECT outflow_entry_id FROM transfers
-            UNION ALL
-            SELECT inflow_entry_id FROM transfers
+          AND NOT EXISTS (
+            SELECT 1 FROM transfers tr
+            WHERE tr.outflow_entry_id = e.id OR tr.inflow_entry_id = e.id
           )
           AND NOT EXISTS (
             SELECT 1 FROM transaction_splits ts WHERE ts.entry_id = e.id
@@ -201,10 +201,9 @@ export async function rebuildRollups(
           AND e.status <> 'pending'
           AND e.deleted_at IS NULL
           AND e.date >= ${fromMonth}::date
-          AND e.id NOT IN (
-            SELECT outflow_entry_id FROM transfers
-            UNION ALL
-            SELECT inflow_entry_id FROM transfers
+          AND NOT EXISTS (
+            SELECT 1 FROM transfers tr
+            WHERE tr.outflow_entry_id = e.id OR tr.inflow_entry_id = e.id
           )
       ) contrib
       GROUP BY date_trunc('month', contrib.date)::date, contrib.category_id
@@ -216,6 +215,11 @@ export async function rebuildRollups(
  * Convenience called by server actions after any ledger write.
  * Rebuilds balances for the affected account and rollups for the household
  * from the affected month onward.
+ *
+ * Locking contract: this runs as two transactions (account lock ns 1, then
+ * household lock ns 2) in a FIXED order. rebuildRollups must only ever be
+ * reached through this function (or with the household lock already held) —
+ * never take the locks in the opposite order, or concurrent writes deadlock.
  */
 export async function afterWrite(
   db: Db,

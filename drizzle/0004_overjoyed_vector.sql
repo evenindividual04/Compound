@@ -1,0 +1,2 @@
+ALTER TABLE "entry_events" ADD CONSTRAINT "entry_events_entry_id_entries_id_fk" FOREIGN KEY ("entry_id") REFERENCES "public"."entries"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "transactions_category" ON "transactions" USING btree ("category_id");
