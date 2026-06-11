@@ -250,3 +250,12 @@ Approved HTML mockups (real fonts/numerals, both modes) under
 - Login / wordmark moment, app icon / manifest identity — not yet designed.
 - Whether coral stays the single accent forever, or a second reserved hue emerges.
 - Exact type scale, radii, and motion timings — refine during implementation.
+- **Desktop / laptop layout — REQUIRED, but deferred for a dedicated discussion.**
+  Compound is one responsive web app (not a separate desktop build). A desktop shape
+  was explored — bottom-nav → left **sidebar** (wordmark + ＋Add + nav + avatar/bell),
+  single-column stack → multi-column **card grid** (Spend + ring side by side, full-width
+  Compound curve, Recent visible), same tokens/type/voice/money rules, both modes — see
+  `~/.gstack/projects/fin/designs/compound-20260612/r8-desktop.html`. Owner's verdict:
+  "okay" but not locked. Responsive breakpoint rules (mobile / tablet / desktop), max
+  content width, and which screens need a desktop-specific layout (e.g. Transactions as a
+  full table) are **TBD — revisit before building the shell.**
