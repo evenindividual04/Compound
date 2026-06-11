@@ -150,7 +150,7 @@ describe("money arithmetic (strings in, strings out)", () => {
   it("compares", () => { expect(cmp("2.00", "10.00")).toBe(-1); expect(isZero("0.0000")).toBe(true); });
 });
 describe("formatINR (en-IN, lakh/crore)", () => {
-  it("groups 3-2-2", () => expect(formatINR("123456.78")).toBe("₹1,23,456.78"));
+  it("groups 3-2-2", () => expect(formatINR("123456.78")).toBe("₹1,23,457")); // paise dropped ≥ ₹1,000
   it("drops paise ≥ ₹1,000", () => expect(formatINR("1234.56")).toBe("₹1,235"));
   it("keeps paise < ₹1,000", () => expect(formatINR("342.50")).toBe("₹342.50"));
   it("compact lakh", () => expect(formatINRCompact("234500")).toBe("₹2.3L"));
