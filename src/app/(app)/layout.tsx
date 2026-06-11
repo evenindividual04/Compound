@@ -3,6 +3,7 @@ import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { requireHousehold } from "@/lib/current";
 import { recentCategoryIds } from "@/lib/ledger/quick-add";
+import { inboxCount } from "@/lib/ledger/inbox";
 import { BottomNav } from "@/components/bottom-nav";
 import { InstallCoachMark } from "@/components/install-coach-mark";
 import { QuickEntry } from "@/components/quick-entry";
@@ -51,10 +52,13 @@ export default async function AppLayout({
   // Recent category ids for chip suggestions
   const recentIds = await recentCategoryIds(db, householdId, 8);
 
+  // Inbox count for badge
+  const count = await inboxCount(db, householdId);
+
   return (
     <>
       <main className="flex-1 pb-20">{children}</main>
-      <BottomNav />
+      <BottomNav inboxCount={count} />
       <QuickEntry
         categories={leafCategories}
         recentIds={recentIds}

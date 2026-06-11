@@ -26,7 +26,11 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/settings", label: "More", Icon: MoreHorizontal },
 ];
 
-export function BottomNav() {
+interface BottomNavProps {
+  inboxCount?: number;
+}
+
+export function BottomNav({ inboxCount = 0 }: BottomNavProps) {
   const pathname = usePathname();
 
   return (
@@ -37,6 +41,7 @@ export function BottomNav() {
         {NAV_ITEMS.map(({ href, label, Icon, badgeId }) => {
           const isActive =
             href === "/" ? pathname === "/" : pathname.startsWith(href);
+          const showInboxBadge = badgeId === "inbox-badge" && inboxCount > 0;
           return (
             <li key={href} className="flex flex-1">
               <Link
@@ -53,8 +58,12 @@ export function BottomNav() {
                   {badgeId && (
                     <span
                       id={badgeId}
-                      className="absolute -right-1 -top-1 hidden h-2 w-2 rounded-full bg-primary"
-                    />
+                      className={`absolute -right-1 -top-1 flex min-w-[14px] items-center justify-center rounded-full bg-primary px-0.5 text-[8px] font-bold leading-[14px] text-primary-foreground transition-all ${
+                        showInboxBadge ? "opacity-100" : "hidden opacity-0"
+                      }`}
+                    >
+                      {showInboxBadge ? (inboxCount > 99 ? "99+" : inboxCount) : ""}
+                    </span>
                   )}
                 </span>
                 <span>{label}</span>
