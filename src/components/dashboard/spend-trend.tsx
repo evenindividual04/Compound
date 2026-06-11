@@ -65,9 +65,3 @@ export function SpendTrend({ data, currentMonth }: Props) {
     </div>
   );
 }
-
-export function toTrendData(
-  trend: { month: string; spend: string }[],
-): { month: string; value: number }[] {
-  return trend.map((p) => ({ month: p.month, value: Number(p.spend) }));
-}

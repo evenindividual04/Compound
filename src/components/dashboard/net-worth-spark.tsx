@@ -1,7 +1,6 @@
 "use client";
 
 import { LineChart, Line, Tooltip, ResponsiveContainer } from "recharts";
-import type { NetWorthPoint } from "@/lib/ledger/dashboard";
 
 interface Props {
   /** Pre-aggregated series; value is number (converted at RSC boundary). */
@@ -46,9 +45,4 @@ export function NetWorthSpark({ data }: Props) {
       </ResponsiveContainer>
     </div>
   );
-}
-
-// Helper to convert NetWorthPoint[] → chart-safe props at the RSC boundary
-export function toSparkData(series: NetWorthPoint[]): { date: string; value: number }[] {
-  return series.map((p) => ({ date: p.date, value: Number(p.netWorth) }));
 }

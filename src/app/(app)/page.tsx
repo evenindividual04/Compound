@@ -13,8 +13,9 @@ import {
   recentTransactions,
 } from "@/lib/ledger/dashboard";
 import { MetricCard } from "@/components/dashboard/metric-card";
-import { NetWorthSpark, toSparkData } from "@/components/dashboard/net-worth-spark";
-import { SpendTrend, toTrendData } from "@/components/dashboard/spend-trend";
+import { NetWorthSpark } from "@/components/dashboard/net-worth-spark";
+import { SpendTrend } from "@/components/dashboard/spend-trend";
+import { toSparkData, toTrendData } from "@/components/dashboard/chart-data";
 
 // month helpers
 function monthStart(ymd: string) {
