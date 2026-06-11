@@ -111,3 +111,117 @@ export async function netWorth(ex: Executor, householdId: string, date: string):
   `);
   return (res as { rows: { nw: string }[] }).rows[0].nw;
 }
+
+/**
+ * Rebuild monthly category rollups for one household from `fromMonth` onward.
+ * fromMonth must be 'YYYY-MM-01'. Pure recompute — never incremental.
+ *
+ * Entries counted: transaction type, not deleted, not pending, belonging to an
+ * account in this household, NOT a leg of any transfer.
+ *
+ * Split handling: if an entry has transaction_splits rows, each split
+ * (categoryId, amount) contributes; the parent contributes nothing.
+ * Otherwise the entry itself contributes (transactions.categoryId, entries.amount).
+ */
+export async function rebuildRollups(
+  db: Db,
+  householdId: string,
+  fromMonth: string,
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${householdId}::text))`);
+
+    // Delete existing rollup rows for this household from fromMonth onward
+    await tx.execute(sql`
+      DELETE FROM rollups
+      WHERE household_id = ${householdId}
+        AND month >= ${fromMonth}::date
+    `);
+
+    // Find the max entry month so we know the upper bound for new rows
+    const meta = await tx.execute(sql`
+      SELECT date_trunc('month', MAX(e.date))::date::text AS max_month
+      FROM entries e
+      JOIN accounts a ON a.id = e.account_id
+      WHERE a.household_id = ${householdId}
+        AND e.entry_type = 'transaction'
+        AND e.status <> 'pending'
+        AND e.deleted_at IS NULL
+        AND e.date >= ${fromMonth}::date
+        AND e.id NOT IN (
+          SELECT outflow_entry_id FROM transfers
+          UNION ALL
+          SELECT inflow_entry_id FROM transfers
+        )
+    `);
+    const maxMonthRaw = (meta as { rows: { max_month: string | null }[] }).rows[0].max_month;
+
+    // If no entries exist from fromMonth onward, nothing to insert
+    if (!maxMonthRaw) return;
+
+    // Insert recomputed rollup rows using a single INSERT ... SELECT.
+    // For entries with splits: use splits (categoryId, amount).
+    // For entries without splits: use (transactions.categoryId, entries.amount).
+    await tx.execute(sql`
+      INSERT INTO rollups (household_id, month, category_id, amount)
+      SELECT
+        ${householdId}::uuid AS household_id,
+        date_trunc('month', contrib.date)::date AS month,
+        contrib.category_id,
+        SUM(contrib.amount)::numeric(19,4) AS amount
+      FROM (
+        -- Entries WITHOUT splits: contribute as themselves
+        SELECT e.date, t.category_id, e.amount
+        FROM entries e
+        JOIN accounts a ON a.id = e.account_id
+        JOIN transactions t ON t.entry_id = e.id
+        WHERE a.household_id = ${householdId}
+          AND e.entry_type = 'transaction'
+          AND e.status <> 'pending'
+          AND e.deleted_at IS NULL
+          AND e.date >= ${fromMonth}::date
+          AND e.id NOT IN (
+            SELECT outflow_entry_id FROM transfers
+            UNION ALL
+            SELECT inflow_entry_id FROM transfers
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM transaction_splits ts WHERE ts.entry_id = e.id
+          )
+
+        UNION ALL
+
+        -- Entries WITH splits: contribute each split
+        SELECT e.date, ts.category_id, ts.amount
+        FROM entries e
+        JOIN accounts a ON a.id = e.account_id
+        JOIN transaction_splits ts ON ts.entry_id = e.id
+        WHERE a.household_id = ${householdId}
+          AND e.entry_type = 'transaction'
+          AND e.status <> 'pending'
+          AND e.deleted_at IS NULL
+          AND e.date >= ${fromMonth}::date
+          AND e.id NOT IN (
+            SELECT outflow_entry_id FROM transfers
+            UNION ALL
+            SELECT inflow_entry_id FROM transfers
+          )
+      ) contrib
+      GROUP BY date_trunc('month', contrib.date)::date, contrib.category_id
+    `);
+  });
+}
+
+/**
+ * Convenience called by server actions after any ledger write.
+ * Rebuilds balances for the affected account and rollups for the household
+ * from the affected month onward.
+ */
+export async function afterWrite(
+  db: Db,
+  args: { accountId: string; householdId: string; date: string },
+): Promise<void> {
+  const fromMonth = args.date.slice(0, 7) + "-01";
+  await rebuildBalances(db, args.accountId, args.date);
+  await rebuildRollups(db, args.householdId, fromMonth);
+}
