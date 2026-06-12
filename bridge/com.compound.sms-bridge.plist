@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+    "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.compound.sms-bridge</string>
+
+    <!-- Adjust ProgramArguments to the correct python3 path.
+         If using a venv, replace /usr/bin/python3 with
+         /Users/YOU/.venv/compound-sms-bridge/bin/python3
+         and remove the pip install step below. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>/Users/anmolsen/Developer/fin/bridge/bridge.py</string>
+        <string>--once</string>
+    </array>
+
+    <!-- Re-run every 60 seconds -->
+    <key>StartInterval</key>
+    <integer>60</integer>
+
+    <!-- Restart the job if it crashes -->
+    <key>KeepAlive</key>
+    <false/>
+
+    <!-- Environment variables — do NOT store secrets here in plaintext.
+         Set INGEST_SECRET in ~/.compound-sms-bridge/config.json instead,
+         or inject it here if your security policy allows. -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+
+    <!-- Logs -->
+    <key>StandardOutPath</key>
+    <string>/Users/anmolsen/.compound-sms-bridge/bridge.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/anmolsen/.compound-sms-bridge/bridge.log</string>
+
+    <!-- Only run when logged in (user agent, not system daemon) -->
+    <key>RunAtLoad</key>
+    <true/>
+</dict>
+</plist>

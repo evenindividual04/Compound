@@ -196,25 +196,47 @@ because it reuses the pipeline (one route + one parser module + a local script);
 removes the app's biggest daily friction. Build order: P1 reskin → **P1.5 SMS** → P2 /
 P3 driven by real usage.
 
-## 10. Build checklist (when implemented)
+## 10. Build checklist (implemented 2026-06-12)
 
-- [ ] `INGEST_SECRET` in `env.ts` (Zod) + Vercel env.
-- [ ] `src/lib/import/sms.ts` — `parseSmsRows()` + templates T1–T3, unit-tested on the
-      §6 fixtures (and the unparsed-fallback path).
-- [ ] `src/app/api/ingest/sms/route.ts` — bearer auth, parse → stage → commit.
-- [ ] `sms_unparsed` capture for unknown financial-sender formats.
-- [ ] `GET /api/ingest/accounts` (optional) or a hardcoded `acctKey→accountId` map.
-- [ ] Mac bridge: chat.db reader (read-only/immutable), attributedBody decode via
-      imessage-exporter, sender filter, cursor, batched POST, `launchd` plist.
-- [ ] One-time setup doc: Text Message Forwarding + Full Disk Access.
-- [ ] Verify dedup: SMS-then-statement for an SBI UPI txn books once.
+- [x] `INGEST_SECRET` in `env.ts` (Zod, `min(16)`, mirrors `CRON_SECRET`). _Vercel env still
+      to set; local dev token added to gitignored `.env.local`._
+- [x] `src/lib/import/sms.ts` — `parseSmsRows()` + templates T1–T3 + `normalizeMerchant`,
+      pure/DB-free, unit-tested on the §6 fixtures incl. the unparsed-fallback path
+      (`src/lib/import/sms.test.ts`).
+- [x] `src/app/api/ingest/sms/route.ts` — bearer auth (timing-safe, same shape as
+      `/api/cron/invariants`), parse → resolve account → stage → commit; added `/api/ingest/`
+      to `PUBLIC_PATHS` in `src/proxy.ts` (machine caller, no session).
+- [x] Unparsed capture — recorded to the **existing `ledger_anomalies`** table as
+      `kind="sms_unparsed"` (hash-deduped, "never silent"), **no new table / no migration**.
+      Unmapped accounts recorded as `kind="sms_unmapped"`.
+- [x] `acctKey→accountId` map via **`accounts.metadata.smsKey`** (data, not schema — the
+      `metadata` jsonb already exists). _Owner must set e.g. `{"smsKey":"SBI:3519"}` on the SBI
+      account, `"ICICI-CC:1004"` on the card, `"LazyPay"` on the BNPL account._ The optional
+      `GET /api/ingest/accounts` was not needed (route resolves live from the DB).
+- [x] Mac bridge: `bridge/bridge.py` (stdlib-only chat.db reader `?mode=ro&immutable=1`,
+      inlined attributedBody typedstream decoder, two-pass sender filter, ROWID cursor,
+      batched POST, retry/backoff) + `bridge/com.compound.sms-bridge.plist` (launchd,
+      `StartInterval 60`).
+- [x] One-time setup doc: `bridge/README.md` (Text Message Forwarding + Full Disk Access +
+      launchd load + `--dry-run` test).
+- [x] Verify dedup: SMS-then-statement for an SBI UPI txn books once — covered by the
+      DB-gated integration test in `sms.test.ts`.
+
+**Minor deviation:** `entry_events.source="import:sms"` (§5.3) was not added — that would mean
+editing `commitImport` (out of surgical scope). Traceability instead rides the `imports.filename`
+`"sms:<yyyy-mm-dd>"`. `entries.source` stays `"import"` as specified.
+
+**Still to do before live use:** set `INGEST_SECRET` in Vercel env; set `metadata.smsKey` on the
+three accounts; on the Mac, enable Text Message Forwarding + grant Full Disk Access + load the plist.
 
 ## 11. Open questions
 
 - Exact bank/sender DLT header list (build from the owner's real inbox; T1–T3 cover
   SBI / ICICI-CC / LazyPay to start).
 - Should BNPL/CC due dates auto-create Bills entries, or just surface a Home reminder?
-- Bridge language (Python vs a small Rust binary on `imessage_database` for max
-  decode-robustness).
-- Whether to stage-and-preview (like the file wizard) or commit-straight-to-inbox
-  (recommended: straight to inbox — the inbox *is* the review step).
+  _(Still open. The T3 parser already extracts `dueDate`; the route currently drops it —
+  no Bills table yet. Wire up once the Bills/reminders surface exists.)_
+- ~~Bridge language~~ **Resolved:** Python 3, stdlib-only. The `imessagedb` attributedBody
+  decode strategy was inlined (zero pip installs); runs on system `python3` out of the box.
+- ~~Stage-and-preview vs commit-straight-to-inbox~~ **Resolved:** commit straight to inbox —
+  entries land `status="pending"`; the review inbox *is* the review step.

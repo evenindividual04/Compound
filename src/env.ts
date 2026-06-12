@@ -10,6 +10,7 @@ export const env = createEnv({
     GOOGLE_CLIENT_SECRET: z.string().min(1),
     OWNER_EMAIL: z.email(),
     CRON_SECRET: z.string().min(16),
+    INGEST_SECRET: z.string().min(16),
   },
   client: {},
   experimental__runtimeEnv: {},

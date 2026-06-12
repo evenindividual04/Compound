@@ -6,6 +6,8 @@ const PUBLIC_PATHS = [
   "/login",
   "/api/auth/",
   "/api/cron/",
+  "/api/ingest/", // machine-caller (SMS bridge); guarded by its own bearer token, not session
+
   "/manifest.webmanifest",
   "/_next/",
   "/favicon.ico",

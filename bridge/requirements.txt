@@ -1,0 +1,12 @@
+# compound-sms-bridge Python dependencies
+#
+# The bridge runs on stdlib only by default.
+# The attributedBody decoder is inlined (see _decode_attributed_body in bridge.py)
+# and matches the approach used by imessagedb >= 1.4.7.
+#
+# OPTIONAL: install imessagedb if you want the maintained package version
+# of the same decode logic (not imported by bridge.py, but useful for testing):
+#
+#   pip install imessagedb>=1.4.7
+#
+# No other third-party packages are required.

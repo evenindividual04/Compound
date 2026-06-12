@@ -1,0 +1,4 @@
+{
+  "ingest_url": "http://localhost:3000",
+  "ingest_secret": "REPLACE_WITH_YOUR_INGEST_SECRET"
+}
