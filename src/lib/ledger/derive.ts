@@ -95,22 +95,63 @@ export async function rebuildBalances(db: Db, accountId: string, fromDate: strin
   });
 }
 
-/** Net worth = Σ balances of active, non-excluded accounts (signs do the work, ADR-1). */
-export async function netWorth(ex: Executor, householdId: string, date: string): Promise<string> {
+/**
+ * Market value of an investment account at `date`: Σ over instruments of
+ * (units held as of date) × (latest price ≤ date). Missing price → cost basis
+ * (buy_cost / buy_units) so a never-priced holding contributes its cost, never NaN.
+ */
+export async function holdingValueAt(ex: Executor, accountId: string, date: string): Promise<string> {
   const res = await ex.execute(sql`
+    WITH lots AS (
+      SELECT t.instrument_id,
+             SUM(CASE WHEN t.side = 'buy' THEN t.units ELSE -t.units END) AS units,
+             SUM(CASE WHEN t.side = 'buy' THEN t.units * t.price ELSE 0 END) AS buy_cost,
+             SUM(CASE WHEN t.side = 'buy' THEN t.units ELSE 0 END) AS buy_units
+      FROM entries e
+      JOIN trades t ON t.entry_id = e.id
+      WHERE e.account_id = ${accountId}
+        AND e.status <> 'pending' AND e.deleted_at IS NULL AND e.date <= ${date}
+      GROUP BY t.instrument_id
+    ),
+    priced AS (
+      SELECT l.units,
+             COALESCE(
+               (SELECT p.nav FROM prices p WHERE p.instrument_id = l.instrument_id AND p.date <= ${date} ORDER BY p.date DESC LIMIT 1),
+               CASE WHEN l.buy_units > 0 THEN l.buy_cost / l.buy_units ELSE 0 END
+             ) AS mark
+      FROM lots l
+      WHERE l.units > 0
+    )
+    SELECT COALESCE(SUM(units * mark), 0)::numeric(19,4)::text AS val FROM priced
+  `);
+  return (res as unknown as { rows: { val: string }[] }).rows[0].val;
+}
+
+/** Net worth: non-investment accounts by cash balance, investment accounts by market value. */
+export async function netWorth(ex: Executor, householdId: string, date: string): Promise<string> {
+  const cash = await ex.execute(sql`
     SELECT COALESCE(SUM(a.opening_balance + COALESCE(s.total, 0)), 0)::numeric(19,4)::text AS nw
     FROM accounts a
     LEFT JOIN LATERAL (
       SELECT SUM(e.amount) AS total FROM entries e
       WHERE e.account_id = a.id
         AND e.entry_type IN ('transaction', 'trade')
-        AND e.status <> 'pending'
-        AND e.deleted_at IS NULL
-        AND e.date <= ${date}
+        AND e.status <> 'pending' AND e.deleted_at IS NULL AND e.date <= ${date}
     ) s ON true
-    WHERE a.household_id = ${householdId} AND a.status = 'active' AND NOT a.excluded
+    WHERE a.household_id = ${householdId} AND a.status = 'active'
+      AND NOT a.excluded AND a.kind <> 'investment'
   `);
-  return (res as unknown as { rows: { nw: string }[] }).rows[0].nw;
+  let total = (cash as unknown as { rows: { nw: string }[] }).rows[0].nw;
+
+  const invest = await ex.execute(sql`
+    SELECT a.id FROM accounts a
+    WHERE a.household_id = ${householdId} AND a.status = 'active'
+      AND NOT a.excluded AND a.kind = 'investment'
+  `);
+  for (const row of (invest as unknown as { rows: { id: string }[] }).rows) {
+    total = add(total, await holdingValueAt(ex, row.id, date));
+  }
+  return total;
 }
 
 /**

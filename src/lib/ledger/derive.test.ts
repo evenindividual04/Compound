@@ -3,7 +3,7 @@ import { and, eq, gte } from "drizzle-orm";
 import { tdb, resetDb, seedBasics } from "./test-db";
 import * as schema from "@/db/schema";
 import { createTransaction } from "./write";
-import { computeBalanceAt, rebuildBalances, netWorth } from "./derive";
+import { computeBalanceAt, rebuildBalances, netWorth, holdingValueAt } from "./derive";
 
 describe.skipIf(!process.env.TEST_DATABASE_URL)("balance derivation", () => {
   let s: Awaited<ReturnType<typeof seedBasics>>;
@@ -113,5 +113,26 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("balance derivation", () => {
     void excluded;
     // 1000 − 342 + 28000 − 45000 = −16342
     expect(await netWorth(tdb, s.hh.id, "2026-04-30")).toBe("-16342.0000");
+  });
+
+  it("net worth values investment accounts by holdings × price, not cash flows", async () => {
+    const { hh } = s; // bank opens at 1000
+    const [zerodha] = await tdb
+      .insert(schema.accounts)
+      .values({ householdId: hh.id, name: "Zerodha", kind: "investment", openingDate: "2026-01-01" })
+      .returning();
+    const [inst] = await tdb
+      .insert(schema.instruments)
+      .values({ householdId: hh.id, kind: "mf", name: "PPFC", amfiCode: "122639" })
+      .returning();
+    const { createTrade } = await import("@/lib/invest/trade");
+    await createTrade(tdb, { accountId: zerodha.id, instrumentId: inst.id, date: "2026-02-01", side: "buy", units: "100", price: "60" });
+    await tdb.insert(schema.prices).values({ instrumentId: inst.id, date: "2026-02-28", nav: "75" });
+
+    const value = await holdingValueAt(tdb, zerodha.id, "2026-03-01");
+    expect(value).toBe("7500.0000"); // 100 × 75, NOT −6000
+
+    const nw = await netWorth(tdb, hh.id, "2026-03-01");
+    expect(nw).toBe("8500.0000"); // bank 1000 + holdings 7500
   });
 });
