@@ -390,6 +390,7 @@ async function checkTradeCashMismatch(db: Db): Promise<AnomalyRow[]> {
     FROM entries e
     JOIN trades t ON t.entry_id = e.id
     WHERE e.deleted_at IS NULL
+      AND e.status <> 'pending'
       AND ABS(ABS(e.amount::numeric) - (t.units::numeric * t.price::numeric)) > 0.01
   `);
   return (
