@@ -1,8 +1,6 @@
 {
   "crons": [
-    {
-      "path": "/api/cron/invariants",
-      "schedule": "30 21 * * *"
-    }
+    { "path": "/api/cron/invariants", "schedule": "0 22 * * *" },
+    { "path": "/api/cron/prices", "schedule": "30 12 * * 1-5" }
   ]
 }
