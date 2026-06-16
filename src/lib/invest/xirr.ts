@@ -45,14 +45,16 @@ export function xirr(cashflows: CashFlow[]): string | null {
     const df = dNpv(rate, flows);
     if (!isFinite(f) || !isFinite(df) || df === 0) break;
     const next = rate - f / df;
-    if (Math.abs(next - rate) < 1e-9) return new Decimal(next).toFixed(6);
+    if (Math.abs(next - rate) < 1e-9 && Math.abs(npv(next, flows)) < 1e-7) return new Decimal(next).toFixed(6);
     rate = next;
     if (rate <= -1) { rate = -0.9999; }
   }
 
   let lo = -0.9999, hi = 10;
   let flo = npv(lo, flows);
-  if (!isFinite(flo)) return null;
+  const fhi = npv(hi, flows);
+  if (!isFinite(flo) || !isFinite(fhi)) return null;
+  if (flo * fhi >= 0) return null; // no root bracketed in range
   for (let i = 0; i < 200; i++) {
     const mid = (lo + hi) / 2;
     const fmid = npv(mid, flows);

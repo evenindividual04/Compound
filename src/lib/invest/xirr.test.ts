@@ -21,6 +21,10 @@ describe("xirr", () => {
     expect(Number(r)).toBeGreaterThan(0);
   });
 
+  it("returns null with fewer than two flows", () => {
+    expect(xirr([{ date: "2025-01-01", amount: "-1000" }])).toBeNull();
+  });
+
   it("returns null when all flows share a sign", () => {
     expect(xirr([{ date: "2025-01-01", amount: "-1000" }, { date: "2026-01-01", amount: "-500" }])).toBeNull();
   });
