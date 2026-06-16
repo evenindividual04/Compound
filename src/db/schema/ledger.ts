@@ -9,6 +9,7 @@ import {
   boolean,
   uniqueIndex,
   index,
+  check,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { accounts, categories, households } from "./core";
@@ -163,6 +164,7 @@ export const rollups = pgTable(
 
 // ── P2: investments ───────────────────────────────────────────────────────────
 export const instrumentKind = pgEnum("instrument_kind", ["mf", "equity"]);
+export const tradeSide = pgEnum("trade_side", ["buy", "sell"]);
 
 export const instruments = pgTable(
   "instruments",
@@ -178,10 +180,16 @@ export const instruments = pgTable(
     amfiCode: text("amfi_code"),
   },
   (t) => [
-    uniqueIndex("instruments_identity").on(
-      t.householdId,
-      t.kind,
-      sql`coalesce(${t.isin}, ${t.symbol}, ${t.amfiCode})`,
+    uniqueIndex("instruments_isin").on(t.householdId, t.isin).where(sql`${t.isin} IS NOT NULL`),
+    uniqueIndex("instruments_symbol")
+      .on(t.householdId, t.symbol)
+      .where(sql`${t.symbol} IS NOT NULL`),
+    uniqueIndex("instruments_amfi")
+      .on(t.householdId, t.amfiCode)
+      .where(sql`${t.amfiCode} IS NOT NULL`),
+    check(
+      "instruments_has_identifier",
+      sql`${t.isin} IS NOT NULL OR ${t.symbol} IS NOT NULL OR ${t.amfiCode} IS NOT NULL`,
     ),
   ],
 );
@@ -192,8 +200,8 @@ export const trades = pgTable("trades", {
     .references(() => entries.id, { onDelete: "cascade" }),
   instrumentId: uuid("instrument_id")
     .notNull()
-    .references(() => instruments.id),
-  side: text("side", { enum: ["buy", "sell"] }).notNull(),
+    .references(() => instruments.id, { onDelete: "restrict" }),
+  side: tradeSide("side").notNull(),
   units: numeric("units", { precision: 24, scale: 6, mode: "string" }).notNull(),
   price: numeric("price", { precision: 24, scale: 6, mode: "string" }).notNull(),
 });
