@@ -110,6 +110,7 @@ export async function holdingValueAt(ex: Executor, accountId: string, date: stri
       FROM entries e
       JOIN trades t ON t.entry_id = e.id
       WHERE e.account_id = ${accountId}
+        AND e.entry_type = 'trade'
         AND e.status <> 'pending' AND e.deleted_at IS NULL AND e.date <= ${date}
       GROUP BY t.instrument_id
     ),
