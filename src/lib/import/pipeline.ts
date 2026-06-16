@@ -19,16 +19,24 @@ import { applyRulesTo } from "@/lib/ledger/rules";
 import { proposeTransfers } from "@/lib/ledger/transfers";
 import { afterWrite } from "@/lib/ledger/derive";
 import { createTransaction, softDelete } from "@/lib/ledger/write";
+import { createTrade } from "@/lib/invest/trade";
 import { validateContinuity } from "./validate";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface NormalizedRow {
   date: string; // yyyy-MM-dd
-  amount: string; // signed, 4dp
+  amount: string; // signed, 4dp (for trades: the signed cash value = tradeCashAmount)
   description: string;
   externalId?: string;
   balance?: string;
+  // ── trade fields (P2) — populated only for investment-account tradebook rows.
+  // Transaction imports ignore them. The signed cash `amount` above drives dedup.
+  instrumentSymbol?: string;
+  instrumentKind?: "mf" | "equity";
+  side?: "buy" | "sell";
+  units?: string;
+  price?: string;
 }
 
 export interface StageInput {
@@ -155,6 +163,12 @@ export async function stageImport(db: Db, input: StageInput): Promise<StageResul
           balance: r.balance,
           importHash: r.importHash,
           occurrence: r.occurrence,
+          // trade fields (P2): parsed has a fixed $type, so trade detail rides in raw
+          instrumentSymbol: r.instrumentSymbol,
+          instrumentKind: r.instrumentKind,
+          side: r.side,
+          units: r.units,
+          price: r.price,
         },
         parsed: {
           date: r.date,
@@ -172,6 +186,53 @@ export async function stageImport(db: Db, input: StageInput): Promise<StageResul
   });
 
   return { importId, stats };
+}
+
+// ── instrument resolve-or-create (P2) ──────────────────────────────────────────
+
+interface TradeRowData {
+  instrumentSymbol?: string;
+  instrumentKind?: "mf" | "equity";
+  side?: "buy" | "sell";
+  units?: string;
+  price?: string;
+}
+
+/** True when a staged row carries the trade detail a trade entry needs. */
+function isTradeRow(raw: TradeRowData): boolean {
+  return Boolean(raw.side && raw.units && raw.price && raw.instrumentSymbol);
+}
+
+/**
+ * Resolve an instrument within the household by symbol/amfiCode, creating one if
+ * absent. mf identifiers live in amfiCode, equity identifiers in symbol; both are
+ * matched against the row's instrumentSymbol (the only identifier a tradebook carries).
+ * The mapping UI corrects mismatches at real-import time (follow-up).
+ */
+async function resolveOrCreateInstrument(
+  db: Db,
+  householdId: string,
+  symbol: string,
+  kind: "mf" | "equity",
+): Promise<string> {
+  const column = kind === "mf" ? schema.instruments.amfiCode : schema.instruments.symbol;
+  const [existing] = await db
+    .select({ id: schema.instruments.id })
+    .from(schema.instruments)
+    .where(and(eq(schema.instruments.householdId, householdId), eq(column, symbol)));
+  if (existing) return existing.id;
+
+  const [created] = await db
+    .insert(schema.instruments)
+    .values({
+      householdId,
+      kind,
+      name: symbol,
+      symbol: kind === "equity" ? symbol : null,
+      amfiCode: kind === "mf" ? symbol : null,
+    })
+    .returning({ id: schema.instruments.id });
+  return created.id;
 }
 
 // ── commitImport ──────────────────────────────────────────────────────────────
@@ -201,7 +262,17 @@ export async function commitImport(
       ),
     );
 
+  // Determine the target account kind once: an investment account routes rows with
+  // trade detail down the trade path; everything else is a transaction.
+  const [account] = await db
+    .select({ kind: schema.accounts.kind })
+    .from(schema.accounts)
+    .where(eq(schema.accounts.id, imp.accountId));
+  if (!account) throw new Error("account not found");
+  const isInvestment = account.kind === "investment";
+
   const createdEntryIds: string[] = [];
+  const transactionEntryIds: string[] = [];
   const rowIdToEntryId: Map<string, string> = new Map();
 
   for (const ir of newRows) {
@@ -209,18 +280,50 @@ export async function commitImport(
     const rawData = ir.raw as {
       importHash?: string;
       externalId?: string;
+      instrumentSymbol?: string;
+      instrumentKind?: "mf" | "equity";
+      side?: "buy" | "sell";
+      units?: string;
+      price?: string;
     };
-    const entryId = await createTransaction(db, {
-      accountId: imp.accountId,
-      date: parsed.date,
-      amount: parsed.amount,
-      description: parsed.description,
-      status: "pending",
-      source: "import",
-      importId: importId,
-      importHash: rawData.importHash ?? null,
-      externalId: rawData.externalId ?? null,
-    });
+
+    let entryId: string;
+    if (isInvestment && isTradeRow(rawData)) {
+      // Trade path: resolve/create the instrument, then write a pending trade.
+      // Rules and transfer proposals are transaction concepts — skipped for trades.
+      const kind = rawData.instrumentKind ?? "equity";
+      const instrumentId = await resolveOrCreateInstrument(
+        db,
+        householdId,
+        rawData.instrumentSymbol!,
+        kind,
+      );
+      entryId = await createTrade(db, {
+        accountId: imp.accountId,
+        instrumentId,
+        date: parsed.date,
+        side: rawData.side!,
+        units: rawData.units!,
+        price: rawData.price!,
+        status: "pending",
+        source: "import",
+        importId,
+        importHash: rawData.importHash ?? null,
+      });
+    } else {
+      entryId = await createTransaction(db, {
+        accountId: imp.accountId,
+        date: parsed.date,
+        amount: parsed.amount,
+        description: parsed.description,
+        status: "pending",
+        source: "import",
+        importId: importId,
+        importHash: rawData.importHash ?? null,
+        externalId: rawData.externalId ?? null,
+      });
+      transactionEntryIds.push(entryId);
+    }
     createdEntryIds.push(entryId);
     rowIdToEntryId.set(ir.id, entryId);
   }
@@ -233,13 +336,11 @@ export async function commitImport(
       .where(eq(schema.importRows.id, rowId));
   }
 
-  // Apply rules
-  if (createdEntryIds.length > 0) {
-    await applyRulesTo(db, householdId, createdEntryIds);
+  // Apply rules + propose transfers for transaction entries only (not trades)
+  if (transactionEntryIds.length > 0) {
+    await applyRulesTo(db, householdId, transactionEntryIds);
+    await proposeTransfers(db, householdId);
   }
-
-  // Propose transfers
-  await proposeTransfers(db, householdId);
 
   // Rebuild balances/rollups: find earliest created date
   if (createdEntryIds.length > 0) {

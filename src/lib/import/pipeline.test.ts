@@ -7,6 +7,9 @@ import { parseFile } from "./parse";
 import { applyMapping } from "./mapping";
 import type { ColumnMapping } from "./mapping";
 import { stageImport, commitImport, undoImport } from "./pipeline";
+import { tradeCashAmount } from "@/lib/invest/trade";
+import { computeHoldings } from "@/lib/invest/holdings";
+import { acceptEntry } from "@/lib/ledger/inbox";
 
 // HDFC mapping matching the fixture columns
 const hdfcMapping: ColumnMapping = {
@@ -250,5 +253,91 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("import pipeline", () => {
         expect(ir.entryId).toBeNull();
       }
     }
+  });
+
+  // ── Trade import path (P2) ───────────────────────────────────────────────────
+
+  it("commitImport: investment account + trade rows → trades created pending, instrument resolved, holdings reflect units after approval", async () => {
+    // Investment account (seedBasics has none)
+    const [invest] = await tdb
+      .insert(schema.accounts)
+      .values({
+        householdId: s.hh.id,
+        name: "Zerodha",
+        kind: "investment",
+        openingBalance: "0",
+        openingDate: "2026-01-01",
+      })
+      .returning();
+
+    // Two buys of the same equity. amount = signed cash value (the caller/test sets it).
+    const tradeRows = [
+      {
+        date: "2026-02-01",
+        amount: tradeCashAmount("buy", "10", "100.00"),
+        description: "BUY INFY",
+        instrumentSymbol: "INFY",
+        side: "buy" as const,
+        units: "10",
+        price: "100.00",
+        instrumentKind: "equity" as const,
+      },
+      {
+        date: "2026-02-02",
+        amount: tradeCashAmount("buy", "5", "120.00"),
+        description: "BUY INFY",
+        instrumentSymbol: "INFY",
+        side: "buy" as const,
+        units: "5",
+        price: "120.00",
+        instrumentKind: "equity" as const,
+      },
+    ];
+
+    const { importId, stats } = await stageImport(tdb, {
+      householdId: s.hh.id,
+      accountId: invest.id,
+      filename: "tradebook.csv",
+      rows: tradeRows,
+    });
+    expect(stats.new).toBe(2);
+
+    const { created } = await commitImport(tdb, importId, s.hh.id);
+    expect(created).toBe(2);
+
+    // An instrument was resolved/created (single INFY in the household)
+    const insts = await tdb
+      .select()
+      .from(schema.instruments)
+      .where(eq(schema.instruments.householdId, s.hh.id));
+    expect(insts).toHaveLength(1);
+    expect(insts[0].symbol).toBe("INFY");
+    expect(insts[0].kind).toBe("equity");
+
+    // Trade entries created as pending, with trades subtype rows
+    const tradeEntries = await tdb
+      .select()
+      .from(schema.entries)
+      .where(eq(schema.entries.importId, importId));
+    expect(tradeEntries).toHaveLength(2);
+    for (const e of tradeEntries) {
+      expect(e.entryType).toBe("trade");
+      expect(e.status).toBe("pending");
+    }
+
+    // Pending trades do NOT yet appear in holdings (un-reviewed imports excluded)
+    const before = await computeHoldings(tdb, s.hh.id, "2026-06-17");
+    expect(before).toHaveLength(0);
+
+    // Approve each trade through the inbox (pending → posted)
+    for (const e of tradeEntries) {
+      await acceptEntry(tdb, e.id, "user");
+    }
+
+    // Now holdings reflect the bought units: 10 + 5 = 15
+    const after = await computeHoldings(tdb, s.hh.id, "2026-06-17");
+    expect(after).toHaveLength(1);
+    expect(after[0].instrumentId).toBe(insts[0].id);
+    expect(after[0].units).toBe("15.000000");
   });
 });
