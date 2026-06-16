@@ -18,6 +18,7 @@ export interface NewTrade {
   side: "buy" | "sell";
   units: string;
   price: string;
+  description?: string;
   status?: "pending" | "posted";
   source?: "manual" | "import" | "system";
   importId?: string | null;
@@ -43,6 +44,7 @@ export async function createTrade(db: Db, input: NewTrade): Promise<string> {
         entryType: "trade",
         date: input.date,
         amount,
+        description: input.description ?? "",
         status: input.status ?? "posted",
         source: input.source ?? "manual",
         importId: input.importId ?? null,

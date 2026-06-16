@@ -216,12 +216,18 @@ async function resolveOrCreateInstrument(
   kind: "mf" | "equity",
 ): Promise<string> {
   const column = kind === "mf" ? schema.instruments.amfiCode : schema.instruments.symbol;
-  const [existing] = await db
-    .select({ id: schema.instruments.id })
-    .from(schema.instruments)
-    .where(and(eq(schema.instruments.householdId, householdId), eq(column, symbol)));
+  const lookup = () =>
+    db
+      .select({ id: schema.instruments.id })
+      .from(schema.instruments)
+      .where(and(eq(schema.instruments.householdId, householdId), eq(column, symbol)));
+
+  const [existing] = await lookup();
   if (existing) return existing.id;
 
+  // Atomic upsert: a concurrent commit (bulk history import) may insert the same
+  // identifier between our SELECT and INSERT. ON CONFLICT DO NOTHING swallows the
+  // unique-index throw; on an empty return we re-select the row the other writer made.
   const [created] = await db
     .insert(schema.instruments)
     .values({
@@ -231,8 +237,13 @@ async function resolveOrCreateInstrument(
       symbol: kind === "equity" ? symbol : null,
       amfiCode: kind === "mf" ? symbol : null,
     })
+    .onConflictDoNothing()
     .returning({ id: schema.instruments.id });
-  return created.id;
+  if (created) return created.id;
+
+  const [raced] = await lookup();
+  if (!raced) throw new Error("instrument upsert failed: no row after conflict");
+  return raced.id;
 }
 
 // ── commitImport ──────────────────────────────────────────────────────────────
@@ -305,12 +316,15 @@ export async function commitImport(
         side: rawData.side!,
         units: rawData.units!,
         price: rawData.price!,
+        description: parsed.description,
         status: "pending",
         source: "import",
         importId,
         importHash: rawData.importHash ?? null,
       });
     } else {
+      // Investment accounts legitimately have non-trade rows (fees, dividends,
+      // interest) with no side/units/price — those fall through to createTransaction.
       entryId = await createTransaction(db, {
         accountId: imp.accountId,
         date: parsed.date,
