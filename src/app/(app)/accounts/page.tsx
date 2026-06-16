@@ -33,19 +33,24 @@ export default async function AccountsPage() {
   const liabilities = withBalances.filter((a) => isLiability(a.kind));
 
   return (
-    <div className="min-h-screen bg-background px-4 pt-12 pb-8">
-      {/* Net worth headline */}
+    <div className="min-h-screen bg-paper px-4 pt-12 pb-8">
+      {/* Net worth headline — hero number */}
       <section className="flex flex-col items-center gap-1 py-8">
-        <p className="text-sm text-muted-foreground">Net worth</p>
-        <p className="tnum text-5xl font-semibold tracking-tight text-foreground">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-soft">
+          Net worth
+        </p>
+        <p className="tnum font-display text-5xl font-bold tracking-tight text-ink">
           {formatINRCompact(nw)}
         </p>
-        <p className="tnum text-sm text-muted-foreground">{formatINR(nw)}</p>
+        <p className="tnum text-sm text-soft">{formatINR(nw)}</p>
       </section>
 
       {/* Add account */}
       <div className="mb-6 flex justify-end">
-        <Link href="/accounts/new" className={buttonVariants({ size: "sm" })}>
+        <Link
+          href="/accounts/new"
+          className={buttonVariants({ size: "sm" })}
+        >
           + Add account
         </Link>
       </div>
@@ -53,10 +58,10 @@ export default async function AccountsPage() {
       {/* Assets */}
       {assets.length > 0 && (
         <section className="mb-6">
-          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <h2 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-soft">
             Assets
           </h2>
-          <ul className="space-y-2">
+          <ul className="bg-surface border border-hairline rounded-2xl divide-y divide-hairline overflow-hidden">
             {assets.map((acct) => (
               <AccountRow key={acct.id} acct={acct} isLiabilityKind={false} />
             ))}
@@ -67,10 +72,10 @@ export default async function AccountsPage() {
       {/* Liabilities */}
       {liabilities.length > 0 && (
         <section className="mb-6">
-          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <h2 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-soft">
             Liabilities
           </h2>
-          <ul className="space-y-2">
+          <ul className="bg-surface border border-hairline rounded-2xl divide-y divide-hairline overflow-hidden">
             {liabilities.map((acct) => (
               <AccountRow key={acct.id} acct={acct} isLiabilityKind={true} />
             ))}
@@ -79,10 +84,10 @@ export default async function AccountsPage() {
       )}
 
       {allAccounts.length === 0 && (
-        <p className="mt-16 text-center text-sm text-muted-foreground">
+        <p className="mt-16 text-center text-sm text-soft">
           No accounts yet.{" "}
-          <Link href="/accounts/new" className="text-primary underline">
-            Add your first account
+          <Link href="/accounts/new" className="text-coral text-xs font-semibold">
+            Add your first account →
           </Link>
         </p>
       )}
@@ -114,10 +119,10 @@ function AccountRow({
     <li>
       <Link
         href={`/accounts/${acct.id}`}
-        className={`flex items-center justify-between rounded-xl bg-card px-4 py-3 ring-1 ring-foreground/10 transition-colors hover:bg-card/80 ${acct.excluded ? "opacity-50" : ""}`}
+        className={`flex items-center justify-between py-3 px-4 transition-colors active:bg-muted hover:bg-muted/50 ${acct.excluded ? "opacity-50" : ""}`}
       >
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">{acct.name}</span>
+          <span className="text-sm font-medium text-ink">{acct.name}</span>
           {acct.excluded && (
             <Badge variant="outline" className="text-[10px]">
               excluded
@@ -129,7 +134,11 @@ function AccountRow({
             </Badge>
           )}
         </div>
-        <span className="tnum text-sm text-muted-foreground">{displayBalance}</span>
+        <span
+          className={`tnum text-sm ${isLiabilityKind ? "text-money-neg" : "text-ink"}`}
+        >
+          {displayBalance}
+        </span>
       </Link>
     </li>
   );

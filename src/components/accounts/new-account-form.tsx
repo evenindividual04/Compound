@@ -45,7 +45,7 @@ export function NewAccountForm({ today }: { today: string }) {
     <form onSubmit={handleSubmit} className="space-y-5">
       {/* Account name */}
       <div className="space-y-1.5">
-        <label className="text-sm font-medium" htmlFor="name">
+        <label className="text-sm font-medium text-soft" htmlFor="name">
           Account name
         </label>
         <Input
@@ -59,7 +59,7 @@ export function NewAccountForm({ today }: { today: string }) {
 
       {/* Kind */}
       <div className="space-y-1.5">
-        <label className="text-sm font-medium">Account type</label>
+        <label className="text-sm font-medium text-soft">Account type</label>
         <Select value={kind} onValueChange={(v) => { if (v !== null) setKind(v); }}>
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Select type" />
@@ -76,7 +76,7 @@ export function NewAccountForm({ today }: { today: string }) {
 
       {/* Opening balance / amount owed */}
       <div className="space-y-1.5">
-        <label className="text-sm font-medium" htmlFor="balance">
+        <label className="text-sm font-medium text-soft" htmlFor="balance">
           {balanceLabel}
         </label>
         <Input
@@ -93,7 +93,7 @@ export function NewAccountForm({ today }: { today: string }) {
 
       {/* Opening date */}
       <div className="space-y-1.5">
-        <label className="text-sm font-medium" htmlFor="openingDate">
+        <label className="text-sm font-medium text-soft" htmlFor="openingDate">
           Opening date
         </label>
         <Input

@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { formatINR } from "@/lib/money";
+import { formatINR, cmp } from "@/lib/money";
 import {
   parseUpload,
   stageWithMapping,
@@ -89,22 +89,22 @@ function PreviewTable({
 }) {
   if (sampleRows.length === 0) return null;
   return (
-    <div className="overflow-x-auto rounded-lg border border-border text-xs">
+    <div className="overflow-x-auto rounded-xl border border-hairline text-xs">
       <table className="w-full">
         <thead>
-          <tr className="border-b border-border bg-muted/50">
+          <tr className="border-b border-hairline bg-paper">
             {headers.map((h, i) => (
-              <th key={i} className="px-2 py-1 text-left font-medium text-muted-foreground">
+              <th key={i} className="px-2 py-1 text-left font-semibold uppercase tracking-[0.08em] text-soft">
                 {h}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-hairline">
           {sampleRows.map((row, ri) => (
-            <tr key={ri} className="border-b border-border last:border-0">
+            <tr key={ri}>
               {row.map((cell, ci) => (
-                <td key={ci} className="px-2 py-1 tnum">
+                <td key={ci} className="px-2 py-1 tnum text-ink">
                   {cell}
                 </td>
               ))}
@@ -129,43 +129,49 @@ function VerdictSection({
   if (rows.length === 0) return null;
 
   const color = verdict === "new" ? "default" : verdict === "duplicate" ? "secondary" : "destructive";
+  const iconClass =
+    verdict === "new"
+      ? "text-money-pos"
+      : verdict === "suspicious"
+      ? "text-warn-ink"
+      : "text-money-neg";
   const icon =
     verdict === "new" ? (
-      <CheckCircle2 className="size-3" />
+      <CheckCircle2 className={`size-3 ${iconClass}`} />
     ) : verdict === "suspicious" ? (
-      <AlertTriangle className="size-3" />
+      <AlertTriangle className={`size-3 ${iconClass}`} />
     ) : (
-      <XCircle className="size-3" />
+      <XCircle className={`size-3 ${iconClass}`} />
     );
 
   return (
-    <div className="rounded-lg border border-border overflow-hidden">
+    <div className="rounded-xl border border-hairline overflow-hidden">
       <button
-        className="flex w-full items-center justify-between px-3 py-2 text-sm font-medium hover:bg-muted/50 transition-colors"
+        className="flex w-full items-center justify-between px-3 py-2 text-sm font-medium hover:bg-paper transition-colors"
         onClick={() => setOpen((o) => !o)}
         type="button"
       >
         <span className="flex items-center gap-2">
           {icon}
-          <span className="capitalize">{verdict}</span>
+          <span className="capitalize text-ink">{verdict}</span>
           <Badge variant={color}>{rows.length}</Badge>
         </span>
-        <span className="text-muted-foreground text-xs">{open ? "▲" : "▼"}</span>
+        <span className="text-soft text-xs">{open ? "▲" : "▼"}</span>
       </button>
       {open && (
-        <div className="divide-y divide-border text-xs">
+        <div className="divide-y divide-hairline text-xs">
           {rows.map((r) => (
             <div key={r.ordinal} className="flex items-baseline justify-between gap-2 px-3 py-1.5">
               <div className="flex-1 truncate">
-                <span className="text-muted-foreground mr-2">{r.date}</span>
-                <span>{r.description}</span>
+                <span className="text-soft mr-2">{r.date}</span>
+                <span className="text-ink">{r.description}</span>
                 {verdict === "suspicious" && (
-                  <span className="ml-2 text-yellow-500 dark:text-yellow-400">
+                  <span className="ml-2 text-warn-ink">
                     — balance discontinuity
                   </span>
                 )}
               </div>
-              <span className="tnum shrink-0 font-medium">{formatINR(r.amount)}</span>
+              <span className={`tnum shrink-0 font-medium ${cmp(r.amount, "0") < 0 ? "text-money-neg" : "text-money-pos"}`}>{formatINR(r.amount)}</span>
             </div>
           ))}
         </div>
@@ -276,7 +282,7 @@ export function ImportWizard({
     return (
       <div className="space-y-4">
         <div className="space-y-2">
-          <label className="text-sm font-medium">Account</label>
+          <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-soft">Account</label>
           <Select value={accountId} onValueChange={(v) => { if (v !== null) setAccountId(v); }}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Select account…" />
@@ -291,12 +297,12 @@ export function ImportWizard({
           </Select>
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium">Statement file</label>
+          <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-soft">Statement file</label>
           <label
-            className={`flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed border-border px-4 py-8 transition-colors hover:border-ring hover:bg-muted/30 ${!accountId ? "pointer-events-none opacity-50" : ""}`}
+            className={`flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-hairline px-4 py-8 transition-colors hover:border-coral hover:bg-paper ${!accountId ? "pointer-events-none opacity-50" : ""}`}
           >
-            <UploadCloud className="size-6 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">
+            <UploadCloud className="size-6 text-soft" />
+            <span className="text-sm text-soft">
               {isPending ? "Parsing…" : "Click to upload .csv or .xlsx"}
             </span>
             <input
@@ -318,11 +324,11 @@ export function ImportWizard({
     return (
       <div className="space-y-4">
         <div>
-          <p className="text-sm font-medium mb-2">Map columns</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-soft mb-2">Map columns</p>
           <div className="grid grid-cols-2 gap-2">
             {/* Date */}
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Date *</label>
+              <label className="text-xs text-soft">Date *</label>
               <Select
                 value={mapping.date ?? ""}
                 onValueChange={(v) => { if (v !== null) handleMappingChange("date", v); }}
@@ -341,7 +347,7 @@ export function ImportWizard({
             </div>
             {/* Description */}
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Description *</label>
+              <label className="text-xs text-soft">Description *</label>
               <Select
                 value={mapping.description ?? ""}
                 onValueChange={(v) => { if (v !== null) handleMappingChange("description", v); }}
@@ -361,7 +367,7 @@ export function ImportWizard({
             {/* Optional roles */}
             {OPTIONAL_ROLES.map(({ key, label }) => (
               <div key={key} className="space-y-1">
-                <label className="text-xs text-muted-foreground">{label}</label>
+                <label className="text-xs text-soft">{label}</label>
                 <Select
                   value={(mapping as unknown as Record<string, string | undefined>)[key] ?? "__none__"}
                   onValueChange={(v) => { if (v !== null) handleMappingChange(key, v); }}
@@ -382,7 +388,7 @@ export function ImportWizard({
             ))}
             {/* Date format */}
             <div className="col-span-2 space-y-1">
-              <label className="text-xs text-muted-foreground">Date format *</label>
+              <label className="text-xs text-soft">Date format *</label>
               <Select
                 value={mapping.dateFormat}
                 onValueChange={(v) => {
@@ -406,7 +412,7 @@ export function ImportWizard({
 
         {/* Preview table */}
         <div>
-          <p className="text-xs text-muted-foreground mb-1">Preview (first 5 rows)</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-soft mb-1">Preview — first 5 rows</p>
           <PreviewTable headers={parseState.headers} sampleRows={parseState.sampleRows} />
         </div>
 
@@ -417,7 +423,7 @@ export function ImportWizard({
           <Button
             onClick={handleStage}
             disabled={isPending || !mapping.date || !mapping.description}
-            className="flex-1"
+            className="flex-1 bg-coral text-coral-text hover:bg-coral/90"
           >
             {isPending ? "Staging…" : "Stage import"}
           </Button>
@@ -455,8 +461,8 @@ export function ImportWizard({
 
         {/* Parse failures */}
         {failed.length > 0 && (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-            <p className="font-medium mb-1">Rows skipped during mapping:</p>
+          <div className="rounded-xl border border-money-neg/30 bg-neg-bg px-3 py-2 text-xs text-money-neg">
+            <p className="font-semibold mb-1">Rows skipped during mapping:</p>
             {failed.map((f) => (
               <p key={f.ordinal}>
                 Row {f.ordinal + 1}: {f.reason}
@@ -476,7 +482,7 @@ export function ImportWizard({
           <Button
             onClick={handleCommit}
             disabled={isPending || stats.new === 0}
-            className="flex-1"
+            className="flex-1 bg-coral text-coral-text hover:bg-coral/90 disabled:opacity-50"
           >
             {isPending
               ? "Committing…"

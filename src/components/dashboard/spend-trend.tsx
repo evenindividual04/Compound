@@ -34,7 +34,7 @@ export function SpendTrend({ data, currentMonth }: Props) {
             tickFormatter={shortMonth}
             axisLine={false}
             tickLine={false}
-            tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+            tick={{ fontSize: 10, fill: "var(--soft)" }}
           />
           <Tooltip
             cursor={false}
@@ -54,8 +54,8 @@ export function SpendTrend({ data, currentMonth }: Props) {
                 key={entry.month}
                 fill={
                   entry.month === currentMonth
-                    ? "hsl(var(--primary))"
-                    : "hsl(var(--muted-foreground)/0.3)"
+                    ? "var(--coral)"
+                    : "var(--soft)"
                 }
               />
             ))}

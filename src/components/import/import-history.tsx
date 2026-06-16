@@ -82,22 +82,22 @@ export function ImportHistory({
 }) {
   if (items.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground text-center py-6">No imports yet</p>
+      <p className="text-sm text-soft text-center py-6">No imports yet.</p>
     );
   }
 
   return (
-    <div className="divide-y divide-border">
+    <div className="divide-y divide-hairline">
       {items.map((item) => (
         <div key={item.id} className="flex items-start justify-between gap-2 py-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-medium truncate">{item.filename}</span>
+              <span className="text-sm font-medium text-ink truncate">{item.filename}</span>
               <Badge variant={STATUS_BADGE[item.status] ?? "secondary"} className="shrink-0">
                 {item.status}
               </Badge>
             </div>
-            <div className="text-xs text-muted-foreground mt-0.5 flex flex-wrap gap-x-3">
+            <div className="text-xs text-soft mt-0.5 flex flex-wrap gap-x-3">
               <span>{item.accountName}</span>
               <span>
                 {new Date(item.createdAt).toLocaleDateString("en-IN", {

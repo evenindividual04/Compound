@@ -42,6 +42,10 @@ interface QuickEntryProps {
   categories: CategoryOption[];
   recentIds: string[];
   accounts: AccountOption[];
+  /** Controlled open state — when provided the internal FAB is hidden */
+  open?: boolean;
+  /** Called when the drawer wants to open or close itself */
+  onOpenChange?: (open: boolean) => void;
 }
 
 const LS_LAST_ACCOUNT = "fin:last-account";
@@ -71,8 +75,25 @@ function useLastAccount(accounts: AccountOption[]) {
   return [accountId, setAndPersist] as const;
 }
 
-export function QuickEntry({ categories, recentIds, accounts }: QuickEntryProps) {
-  const [open, setOpen] = useState(false);
+export function QuickEntry({
+  categories,
+  recentIds,
+  accounts,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
+}: QuickEntryProps) {
+  const isControlled = controlledOpen !== undefined;
+  const [internalOpen, setInternalOpen] = useState(false);
+
+  const open = isControlled ? controlledOpen : internalOpen;
+  function setOpen(value: boolean) {
+    if (isControlled) {
+      controlledOnOpenChange?.(value);
+    } else {
+      setInternalOpen(value);
+    }
+  }
+
   const [display, setDisplay] = useState("0");
   const [date, setDate] = useState<string>(todayIST());
   const [description, setDescription] = useState("");
@@ -186,151 +207,138 @@ export function QuickEntry({ categories, recentIds, accounts }: QuickEntryProps)
   const yesterday = yesterdayIST();
 
   return (
-    <>
-      {/* FAB */}
-      <button
-        id="quick-entry-fab"
-        aria-label="Quick entry"
-        onClick={() => setOpen(true)}
-        className="fixed bottom-20 left-1/2 z-50 flex h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full bg-primary text-2xl font-light text-primary-foreground shadow-lg transition-transform hover:scale-105 active:scale-95"
-        style={{ marginBottom: "env(safe-area-inset-bottom)" }}
-      >
-        +
-      </button>
+    <Drawer open={open} onOpenChange={setOpen}>
+      <DrawerContent className="px-4 pb-6">
+        <DrawerHeader className="pb-2">
+          <DrawerTitle>Quick Entry</DrawerTitle>
+        </DrawerHeader>
 
-      <Drawer open={open} onOpenChange={setOpen}>
-        <DrawerContent className="px-4 pb-6">
-          <DrawerHeader className="pb-2">
-            <DrawerTitle>Quick Entry</DrawerTitle>
-          </DrawerHeader>
+        {/* Amount display */}
+        <div className="tnum flex items-baseline justify-center pb-4 text-5xl font-semibold tracking-tight">
+          {formatINR(display === "" || display === "0" ? "0" : display)}
+        </div>
 
-          {/* Amount display */}
-          <div className="tnum flex items-baseline justify-center pb-4 text-5xl font-semibold tracking-tight">
-            {formatINR(display === "" || display === "0" ? "0" : display)}
-          </div>
+        {/* Keypad */}
+        <div className="mx-auto mb-4 grid w-full max-w-xs grid-cols-3 gap-2">
+          {KEYPAD.flat().map((key) => (
+            <button
+              key={key}
+              onClick={() => handleKey(key)}
+              className="tnum flex h-12 items-center justify-center rounded-xl bg-secondary text-lg font-medium text-secondary-foreground transition-colors active:bg-secondary/70"
+            >
+              {key}
+            </button>
+          ))}
+        </div>
 
-          {/* Keypad */}
-          <div className="mx-auto mb-4 grid w-full max-w-xs grid-cols-3 gap-2">
-            {KEYPAD.flat().map((key) => (
+        {/* Recent category chips */}
+        {recentCategories.length > 0 && (
+          <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
+            {recentCategories.map((cat) => (
               <button
-                key={key}
-                onClick={() => handleKey(key)}
-                className="tnum flex h-12 items-center justify-center rounded-xl bg-secondary text-lg font-medium text-secondary-foreground transition-colors active:bg-secondary/70"
+                key={cat.id}
+                onClick={() => submit(cat.id)}
+                className="shrink-0 rounded-full border border-border bg-secondary px-3 py-1.5 text-sm font-medium text-secondary-foreground transition-colors active:bg-secondary/70"
               >
-                {key}
+                {cat.name}
               </button>
             ))}
           </div>
+        )}
 
-          {/* Recent category chips */}
-          {recentCategories.length > 0 && (
-            <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
-              {recentCategories.map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => submit(cat.id)}
-                  className="shrink-0 rounded-full border border-border bg-secondary px-3 py-1.5 text-sm font-medium text-secondary-foreground transition-colors active:bg-secondary/70"
-                >
-                  {cat.name}
-                </button>
+        {/* Controls row: More category select, account, date chips, description toggle */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* "More" category select */}
+          <Select
+            onValueChange={(id) => {
+              if (id != null) void submit(id as string);
+            }}
+          >
+            <SelectTrigger size="sm" className="w-auto">
+              <SelectValue placeholder="More…" />
+              <ChevronDownIcon className="ml-1 h-3 w-3 text-muted-foreground" />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(grouped).map(([group, cats]) => (
+                <SelectGroup key={group}>
+                  <SelectLabel>{group}</SelectLabel>
+                  {cats.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      <span className="flex items-center gap-2">
+                        {cat.name}
+                        <Badge
+                          variant="outline"
+                          className="text-[10px]"
+                        >
+                          {cat.classification === "income" ? "+" : "−"}
+                        </Badge>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               ))}
-            </div>
-          )}
+            </SelectContent>
+          </Select>
 
-          {/* Controls row: More category select, account, date chips, description toggle */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* "More" category select */}
-            <Select
-              onValueChange={(id) => {
-                if (id != null) void submit(id as string);
-              }}
-            >
+          {/* Account select */}
+          {accounts.length > 0 && (
+            <Select value={accountId} onValueChange={(v) => { if (v != null) setAccountId(v as string); }}>
               <SelectTrigger size="sm" className="w-auto">
-                <SelectValue placeholder="More…" />
-                <ChevronDownIcon className="ml-1 h-3 w-3 text-muted-foreground" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(grouped).map(([group, cats]) => (
-                  <SelectGroup key={group}>
-                    <SelectLabel>{group}</SelectLabel>
-                    {cats.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>
-                        <span className="flex items-center gap-2">
-                          {cat.name}
-                          <Badge
-                            variant="outline"
-                            className="text-[10px]"
-                          >
-                            {cat.classification === "income" ? "+" : "−"}
-                          </Badge>
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
+                {accounts.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-
-            {/* Account select */}
-            {accounts.length > 0 && (
-              <Select value={accountId} onValueChange={(v) => { if (v != null) setAccountId(v as string); }}>
-                <SelectTrigger size="sm" className="w-auto">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {accounts.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-
-            {/* Date chips */}
-            <button
-              onClick={() => setDate(today)}
-              className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
-                date === today
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Today
-            </button>
-            <button
-              onClick={() => setDate(yesterday)}
-              className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
-                date === yesterday
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Yesterday
-            </button>
-
-            {/* Description toggle */}
-            <button
-              onClick={() => setShowDesc((v) => !v)}
-              aria-label="Add note"
-              className="rounded-lg border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <SlidersHorizontal className="h-3.5 w-3.5" />
-            </button>
-          </div>
-
-          {/* Optional description */}
-          {showDesc && (
-            <Input
-              className="mt-3"
-              placeholder="Note (optional)"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              maxLength={255}
-            />
           )}
-        </DrawerContent>
-      </Drawer>
-    </>
+
+          {/* Date chips */}
+          <button
+            onClick={() => setDate(today)}
+            className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+              date === today
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Today
+          </button>
+          <button
+            onClick={() => setDate(yesterday)}
+            className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+              date === yesterday
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Yesterday
+          </button>
+
+          {/* Description toggle */}
+          <button
+            onClick={() => setShowDesc((v) => !v)}
+            aria-label="Add note"
+            className="rounded-lg border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        {/* Optional description */}
+        {showDesc && (
+          <Input
+            className="mt-3"
+            placeholder="Note (optional)"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            maxLength={255}
+          />
+        )}
+      </DrawerContent>
+    </Drawer>
   );
 }

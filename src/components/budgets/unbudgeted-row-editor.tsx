@@ -51,9 +51,9 @@ export function UnbudgetedRowEditor({ month, categoryId, categoryName, spent }: 
   return (
     <div className="flex items-center justify-between gap-2 py-2">
       <div className="flex-1 min-w-0">
-        <span className="text-sm text-foreground truncate">{categoryName}</span>
+        <span className="text-sm text-ink truncate">{categoryName}</span>
       </div>
-      <span className="tnum text-sm text-muted-foreground tabular-nums shrink-0">
+      <span className="tnum text-sm text-soft tabular-nums shrink-0">
         {formatINR(spent)}
       </span>
       {editing ? (

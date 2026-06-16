@@ -52,7 +52,7 @@ export function TxnListClient({ rows, categories, month }: Props) {
 
   return (
     <>
-      <div className="divide-y divide-border">
+      <div className="divide-y divide-hairline">
         {rows.map((row) => (
           <TxnRowItem key={row.entryId} row={row} onClick={setSelected} />
         ))}

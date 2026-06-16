@@ -136,18 +136,18 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
   return (
     <div className="min-h-screen bg-background">
       {/* Month pager header */}
-      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background/95 px-4 py-3 backdrop-blur">
+      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-hairline bg-background/95 px-4 py-3 backdrop-blur">
         <Link
           href={`/transactions?month=${prev}`}
-          className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-muted"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-ink hover:bg-muted"
           aria-label="Previous month"
         >
           <ChevronLeft className="h-5 w-5" />
         </Link>
-        <span className="text-sm font-semibold">{monthLabel(month)}</span>
+        <span className="font-body text-sm font-semibold text-ink">{monthLabel(month)}</span>
         <Link
           href={`/transactions?month=${next}`}
-          className={`flex h-8 w-8 items-center justify-center rounded-full hover:bg-muted ${isCurrentMonth ? "pointer-events-none opacity-30" : ""}`}
+          className={`flex h-8 w-8 items-center justify-center rounded-full text-ink hover:bg-muted ${isCurrentMonth ? "pointer-events-none opacity-30" : ""}`}
           aria-label="Next month"
           aria-disabled={isCurrentMonth}
         >
@@ -157,8 +157,8 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
 
       {/* Transaction list */}
       {txnRows.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 py-16 text-muted-foreground">
-          <p className="text-sm">No transactions in {monthLabel(month)}</p>
+        <div className="flex flex-col items-center gap-2 py-16">
+          <p className="text-sm text-soft">No transactions yet.</p>
         </div>
       ) : (
         <Suspense>
@@ -172,12 +172,12 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
 
       {/* Load more */}
       {hasMore && (
-        <div className="flex justify-center py-4">
+        <div className="flex justify-center py-6">
           <Link
             href={`/transactions?month=${month}&page=${page + 1}`}
-            className="text-sm text-primary underline-offset-4 hover:underline"
+            className="text-xs font-semibold text-coral underline-offset-4 hover:underline"
           >
-            Load more
+            Load more →
           </Link>
         </div>
       )}

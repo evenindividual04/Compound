@@ -37,11 +37,11 @@ export default async function AccountDetailPage({
     : formatINR(balance);
 
   return (
-    <div className="min-h-screen bg-background px-4 pt-12 pb-8">
+    <div className="min-h-screen bg-paper px-4 pt-12 pb-8">
       <header className="mb-6 flex items-center gap-2">
         <Link
           href="/accounts"
-          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          className="flex items-center gap-1 text-sm text-soft hover:text-ink"
         >
           <ChevronLeft className="h-4 w-4" />
           Accounts
@@ -51,7 +51,7 @@ export default async function AccountDetailPage({
       {/* Account header */}
       <section className="mb-8">
         <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-semibold">{account.name}</h1>
+          <h1 className="font-display text-3xl font-bold text-ink">{account.name}</h1>
           {account.excluded && (
             <Badge variant="outline" className="text-xs">
               excluded
@@ -63,25 +63,31 @@ export default async function AccountDetailPage({
             </Badge>
           )}
         </div>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-sm text-soft">
           {KIND_LABELS[account.kind]}
         </p>
-        <p className="tnum mt-3 text-3xl font-semibold tracking-tight">
+        <p
+          className={`tnum font-display mt-3 text-4xl font-bold tracking-tight ${isLiability ? "text-money-neg" : "text-ink"}`}
+        >
           {displayBalance}
         </p>
-        <p className="mt-0.5 text-xs text-muted-foreground">as of today</p>
+        <p className="mt-0.5 text-xs text-soft">as of today</p>
       </section>
 
       {/* Update balance */}
       {account.status === "active" && (
         <section className="mb-8">
-          <h2 className="mb-4 text-base font-semibold">Update balance</h2>
-          <UpdateBalanceForm accountId={account.id} kind={account.kind} today={today} />
+          <h2 className="mb-4 text-[10px] font-semibold uppercase tracking-[0.12em] text-soft">
+            Update balance
+          </h2>
+          <div className="bg-surface border border-hairline rounded-2xl p-4">
+            <UpdateBalanceForm accountId={account.id} kind={account.kind} today={today} />
+          </div>
         </section>
       )}
 
       {/* Account actions */}
-      <section className="border-t border-border pt-6">
+      <section className="border-t border-hairline pt-6">
         <AccountActions
           accountId={account.id}
           excluded={account.excluded}

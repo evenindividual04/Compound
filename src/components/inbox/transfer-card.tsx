@@ -42,18 +42,18 @@ export function TransferCard({ transfer }: Props) {
   return (
     <div
       className={cn(
-        "flex flex-col gap-2 rounded-xl border border-border bg-card p-3 transition-colors",
+        "flex flex-col gap-2 rounded-2xl border border-hairline bg-surface p-3 transition-colors",
         pending && "opacity-60",
       )}
     >
       <div className="flex items-center gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 text-sm">
-            <span className="font-medium truncate">{transfer.outflow.accountName}</span>
-            <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-            <span className="font-medium truncate">{transfer.inflow.accountName}</span>
+            <span className="font-medium text-ink truncate">{transfer.outflow.accountName}</span>
+            <ArrowRight className="h-3.5 w-3.5 shrink-0 text-soft" />
+            <span className="font-medium text-ink truncate">{transfer.inflow.accountName}</span>
           </div>
-          <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-soft">
             <span className="tnum">{formatINR(abs(transfer.outflow.amount))}</span>
             <span>·</span>
             <span>{transfer.outflow.date}</span>
@@ -64,7 +64,7 @@ export function TransferCard({ transfer }: Props) {
               </>
             )}
           </div>
-          <div className="mt-0.5 text-[11px] text-muted-foreground truncate">
+          <div className="mt-0.5 text-[11px] text-soft truncate">
             {transfer.outflow.description || transfer.inflow.description || "Transfer"}
           </div>
         </div>

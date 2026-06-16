@@ -34,7 +34,7 @@ export default async function InboxPage() {
   return (
     <div className="px-4 pb-6 pt-5">
       <div className="mb-5 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Inbox</h1>
+        <h1 className="font-display text-3xl font-bold text-ink">Inbox</h1>
         {count > 0 && (
           <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
             {count}

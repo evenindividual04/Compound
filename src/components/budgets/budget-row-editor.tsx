@@ -54,7 +54,7 @@ export function BudgetAmountEditor({ month, categoryId, assigned, label }: Props
     return (
       <button
         onClick={startEdit}
-        className="tnum text-right text-sm tabular-nums text-foreground hover:text-primary transition-colors"
+        className="tnum text-right text-sm tabular-nums text-ink hover:text-primary transition-colors"
         aria-label="Edit budget amount"
       >
         {label ?? formatINR(assigned)}

@@ -39,15 +39,15 @@ export function ImportPageClient({ accounts }: { accounts: Account[] }) {
   }
 
   return (
-    <div className="min-h-screen bg-background px-4 pt-12 pb-8 space-y-8">
+    <div className="min-h-screen bg-paper px-4 pt-12 pb-8 space-y-8">
       {/* Header */}
       <section className="flex items-center gap-2">
-        <Upload className="size-5 text-muted-foreground" />
-        <h1 className="text-xl font-semibold">Import statement</h1>
+        <Upload className="size-5 text-soft" />
+        <h1 className="font-display text-3xl font-bold text-ink">Import statement</h1>
       </section>
 
       {/* Wizard */}
-      <section className="rounded-xl border border-border p-4 bg-card">
+      <section className="bg-surface border border-hairline rounded-2xl p-4">
         <ImportWizard
           key={wizardKey}
           accounts={accounts}
@@ -57,11 +57,11 @@ export function ImportPageClient({ accounts }: { accounts: Account[] }) {
 
       {/* Import history */}
       <section>
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+        <h2 className="text-[10px] font-semibold uppercase tracking-[0.12em] text-soft mb-3">
           Import history
         </h2>
         {isPending && !historyLoaded ? (
-          <div className="text-sm text-muted-foreground py-4 text-center">Loading…</div>
+          <div className="text-sm text-soft py-4 text-center">Loading…</div>
         ) : (
           <ImportHistory items={history} onRefresh={refreshHistory} />
         )}

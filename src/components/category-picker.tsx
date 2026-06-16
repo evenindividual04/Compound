@@ -51,22 +51,22 @@ export function CategoryPicker({ categories, value, onSelect }: Props) {
         onChange={(e) => setQuery(e.target.value)}
         className="h-8 text-sm"
       />
-      <div className="max-h-64 overflow-y-auto rounded-lg border border-border">
+      <div className="max-h-64 overflow-y-auto rounded-xl border border-hairline">
         {/* Uncategorized option */}
         <button
           type="button"
           onClick={() => onSelect(null)}
           className={cn(
-            "flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-muted",
-            value === null && "bg-muted/60",
+            "flex w-full items-center justify-between px-3 py-2.5 text-sm text-ink hover:bg-muted active:bg-muted/80",
+            value === null && "bg-muted",
           )}
         >
-          <span className="text-muted-foreground italic">Uncategorized</span>
-          {value === null && <Check className="h-4 w-4 text-primary" />}
+          <span className="text-soft italic">Uncategorized</span>
+          {value === null && <Check className="h-4 w-4 text-coral" />}
         </button>
         {Array.from(groups.entries()).map(([groupName, cats]) => (
           <div key={groupName}>
-            <div className="sticky top-0 bg-background px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <div className="sticky top-0 border-t border-hairline bg-surface px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-soft">
               {groupName}
             </div>
             {cats.map((cat) => (
@@ -75,19 +75,19 @@ export function CategoryPicker({ categories, value, onSelect }: Props) {
                 type="button"
                 onClick={() => onSelect(cat.id)}
                 className={cn(
-                  "flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-muted",
-                  value === cat.id && "bg-muted/60",
+                  "flex w-full items-center justify-between px-3 py-2.5 text-sm text-ink hover:bg-muted active:bg-muted/80",
+                  value === cat.id && "bg-muted",
                 )}
               >
                 <span>{cat.name}</span>
-                {value === cat.id && <Check className="h-4 w-4 text-primary" />}
+                {value === cat.id && <Check className="h-4 w-4 text-coral" />}
               </button>
             ))}
           </div>
         ))}
         {filtered.length === 0 && (
-          <p className="px-3 py-4 text-center text-sm text-muted-foreground">
-            No categories match
+          <p className="px-3 py-4 text-center text-sm text-soft">
+            No categories match.
           </p>
         )}
       </div>

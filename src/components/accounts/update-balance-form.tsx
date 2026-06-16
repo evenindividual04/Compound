@@ -44,7 +44,7 @@ export function UpdateBalanceForm({ accountId, kind, today }: Props) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-1.5">
-        <label className="text-sm font-medium" htmlFor="valDate">
+        <label className="text-sm font-medium text-soft" htmlFor="valDate">
           Date
         </label>
         <Input
@@ -56,7 +56,7 @@ export function UpdateBalanceForm({ accountId, kind, today }: Props) {
         />
       </div>
       <div className="space-y-1.5">
-        <label className="text-sm font-medium" htmlFor="valAmount">
+        <label className="text-sm font-medium text-soft" htmlFor="valAmount">
           {label}
         </label>
         <Input

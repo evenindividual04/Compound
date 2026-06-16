@@ -169,10 +169,10 @@ export function TxnEditDrawer({
           <DrawerTitle className="truncate">
             {row.merchant || row.description || "Transaction"}
           </DrawerTitle>
-          <p className="tnum text-center text-2xl font-semibold">
+          <p className="tnum text-center text-2xl font-semibold text-ink">
             {formatINR(row.amount)}
           </p>
-          <p className="text-center text-xs text-muted-foreground">
+          <p className="text-center text-xs text-soft">
             {row.accountName} · {row.date}
           </p>
         </DrawerHeader>
@@ -180,7 +180,7 @@ export function TxnEditDrawer({
         <div className="flex flex-col gap-4 px-4 pb-2">
           {/* Description */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted-foreground">Description</label>
+            <label className="text-xs font-semibold uppercase tracking-[0.12em] text-soft">Description</label>
             <div className="flex gap-2">
               <Input
                 value={description}
@@ -202,7 +202,7 @@ export function TxnEditDrawer({
           {/* Category picker */}
           {!isTransferLeg && !splitMode && (
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-muted-foreground">Category</label>
+              <label className="text-xs font-semibold uppercase tracking-[0.12em] text-soft">Category</label>
               <CategoryPicker
                 categories={categories}
                 value={categoryId}
@@ -215,7 +215,7 @@ export function TxnEditDrawer({
           {!isTransferLeg && (
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground">Splits</span>
+                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-soft">Splits</span>
                 <div className="flex gap-1">
                   {splitMode && (
                     <>
@@ -300,7 +300,7 @@ export function TxnEditDrawer({
             <div className="flex flex-col gap-2">
               <button
                 type="button"
-                className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
+                className="flex items-center gap-1.5 text-xs font-semibold text-coral"
                 onClick={() => setTransferPanel((p) => !p)}
               >
                 <ArrowLeftRight className="h-3.5 w-3.5" />
@@ -312,13 +312,13 @@ export function TxnEditDrawer({
                     <button
                       key={c.entryId}
                       type="button"
-                      className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm hover:bg-muted"
+                      className="flex items-center justify-between rounded-xl border border-hairline px-3 py-2.5 text-sm text-ink hover:bg-muted active:bg-muted/80"
                       onClick={() => handlePairTransfer(c.entryId)}
                       disabled={isPending}
                     >
                       <span className="truncate">
                         {c.description || c.accountName}
-                        <span className="ml-1.5 text-xs text-muted-foreground">
+                        <span className="ml-1.5 text-xs text-soft">
                           {c.accountName} · {c.date}
                         </span>
                       </span>

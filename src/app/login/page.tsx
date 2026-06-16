@@ -8,12 +8,12 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-black flex items-center justify-center">
+    <main className="min-h-screen bg-background flex items-center justify-center">
       <div className="flex flex-col items-center gap-6">
-        <h1 className="text-white text-2xl font-semibold tracking-tight">compound</h1>
+        <h1 className="text-foreground text-2xl font-semibold tracking-tight">compound</h1>
         <button
           onClick={handleGoogleSignIn}
-          className="flex items-center gap-3 px-5 py-3 bg-white text-gray-900 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
+          className="flex items-center gap-3 px-5 py-3 bg-surface text-ink rounded-lg text-sm font-medium hover:bg-muted transition-colors"
         >
           <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
             <path

@@ -73,15 +73,15 @@ export function EntryCard({ entry, categories, selected, selectMode, onToggleSel
   return (
     <div
       className={cn(
-        "flex flex-col gap-2 rounded-xl border border-border bg-card p-3 transition-colors",
+        "flex flex-col gap-2 rounded-2xl border border-hairline bg-surface p-3 transition-colors",
         selected && "ring-2 ring-primary",
         pending && "opacity-60",
       )}
     >
       {entry.isAdjustment && (
-        <div className="flex items-center gap-1.5 rounded-lg bg-amber-500/10 px-2 py-1 text-xs text-amber-600 dark:text-amber-400">
+        <div className="flex items-center gap-1.5 rounded-lg bg-warn-bg px-2 py-1 text-xs text-warn-ink">
           <span className="font-medium">Reconciliation gap</span>
-          <span className="text-muted-foreground">on {entry.accountName} · {entry.date}</span>
+          <span className="text-soft">on {entry.accountName} · {entry.date}</span>
         </div>
       )}
 
@@ -91,7 +91,7 @@ export function EntryCard({ entry, categories, selected, selectMode, onToggleSel
             type="button"
             onClick={() => onToggleSelect(entry.entryId)}
             className={cn(
-              "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border border-border transition-colors",
+              "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border border-hairline transition-colors",
               selected && "border-primary bg-primary text-primary-foreground",
             )}
             aria-checked={selected}
@@ -103,13 +103,13 @@ export function EntryCard({ entry, categories, selected, selectMode, onToggleSel
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <span className="truncate text-sm font-medium">
+            <span className="truncate text-sm font-medium text-ink">
               {entry.merchant || entry.description || "—"}
             </span>
             <span
               className={cn(
                 "tnum shrink-0 text-sm font-semibold",
-                isIncome ? "text-green-500" : "text-foreground",
+                isIncome ? "text-money-pos" : "text-ink",
               )}
             >
               {formatINR(entry.amount)}
@@ -117,9 +117,9 @@ export function EntryCard({ entry, categories, selected, selectMode, onToggleSel
           </div>
 
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] text-muted-foreground">{entry.accountName}</span>
-            <span className="text-[11px] text-muted-foreground">·</span>
-            <span className="text-[11px] text-muted-foreground">{entry.date}</span>
+            <span className="text-[11px] text-soft">{entry.accountName}</span>
+            <span className="text-[11px] text-soft">·</span>
+            <span className="text-[11px] text-soft">{entry.date}</span>
 
             {effectiveCategoryName && (
               <Badge
@@ -130,7 +130,7 @@ export function EntryCard({ entry, categories, selected, selectMode, onToggleSel
               </Badge>
             )}
             {needsCategory && (
-              <Badge variant="outline" className="border-dashed text-[10px] text-muted-foreground">
+              <Badge variant="outline" className="border-dashed text-[10px] text-soft">
                 needs category
               </Badge>
             )}

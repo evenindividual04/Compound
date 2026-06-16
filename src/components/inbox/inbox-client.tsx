@@ -26,9 +26,9 @@ export function InboxClient({ pendingEntries, pendingTransfers, categories }: Pr
   if (total === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2 py-24 text-center">
-        <CheckSquare className="h-12 w-12 text-muted-foreground/40" />
-        <p className="text-lg font-medium text-muted-foreground">All caught up ✓</p>
-        <p className="text-sm text-muted-foreground">Nothing pending review.</p>
+        <CheckSquare className="h-12 w-12 text-soft/40" />
+        <p className="text-lg font-medium text-soft">Inbox clear.</p>
+        <p className="text-sm text-soft">Nothing to review.</p>
       </div>
     );
   }
@@ -74,9 +74,9 @@ export function InboxClient({ pendingEntries, pendingTransfers, categories }: Pr
       {pendingEntries.length > 0 && (
         <section>
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            <h2 className="text-[10px] font-semibold uppercase tracking-[0.12em] text-soft">
               Transactions{" "}
-              <span className="ml-1 text-foreground">{pendingEntries.length}</span>
+              <span className="ml-1 text-ink">{pendingEntries.length}</span>
             </h2>
             <div className="flex items-center gap-2">
               {selectMode && (
@@ -122,9 +122,9 @@ export function InboxClient({ pendingEntries, pendingTransfers, categories }: Pr
       {/* Transfers section */}
       {pendingTransfers.length > 0 && (
         <section>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          <h2 className="mb-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-soft">
             Transfers{" "}
-            <span className="ml-1 text-foreground">{pendingTransfers.length}</span>
+            <span className="ml-1 text-ink">{pendingTransfers.length}</span>
           </h2>
           <div className="flex flex-col gap-2">
             {pendingTransfers.map((t) => (
@@ -137,8 +137,8 @@ export function InboxClient({ pendingEntries, pendingTransfers, categories }: Pr
       {/* Bulk accept bar */}
       {selectMode && selected.size > 0 && (
         <div className="fixed bottom-20 left-0 right-0 z-40 flex justify-center px-4">
-          <div className="flex w-full max-w-sm items-center justify-between gap-3 rounded-xl border border-border bg-card/95 px-4 py-3 shadow-lg backdrop-blur">
-            <span className="text-sm font-medium">
+          <div className="flex w-full max-w-sm items-center justify-between gap-3 rounded-2xl border border-hairline bg-surface/95 px-4 py-3 shadow-lg backdrop-blur">
+            <span className="text-sm font-medium text-ink">
               {selected.size} selected
             </span>
             <Button size="sm" onClick={handleAcceptSelected} disabled={bulkPending}>

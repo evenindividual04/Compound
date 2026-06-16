@@ -1,13 +1,12 @@
+import type React from "react";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { requireHousehold } from "@/lib/current";
 import { recentCategoryIds } from "@/lib/ledger/quick-add";
 import { inboxCount } from "@/lib/ledger/inbox";
-import { BottomNav } from "@/components/bottom-nav";
-import { InstallCoachMark } from "@/components/install-coach-mark";
-import { QuickEntry } from "@/components/quick-entry";
 import type { CategoryOption } from "@/components/quick-entry";
+import { AppShell } from "@/components/app-shell";
 
 export default async function AppLayout({
   children,
@@ -56,15 +55,15 @@ export default async function AppLayout({
   const count = await inboxCount(db, householdId);
 
   return (
-    <>
-      <main className="flex-1 pb-20">{children}</main>
-      <BottomNav inboxCount={count} />
-      <QuickEntry
-        categories={leafCategories}
-        recentIds={recentIds}
-        accounts={activeAccounts}
-      />
-      <InstallCoachMark />
-    </>
+    <AppShell
+      inboxCount={count}
+      quickEntryProps={{
+        categories: leafCategories,
+        recentIds,
+        accounts: activeAccounts,
+      }}
+    >
+      {children}
+    </AppShell>
   );
 }

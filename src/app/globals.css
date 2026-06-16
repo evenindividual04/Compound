@@ -7,9 +7,28 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-sans: var(--font-hanken);
+  --font-display: var(--font-bricolage);
+  --font-mono: var(--font-hanken);
+  --font-heading: var(--font-bricolage);
+
+  /* Compound semantic palette — exposes utilities: bg-paper, bg-surface,
+     text-ink, text-soft, border-hairline, text-coral/bg-coral,
+     text-money-pos/text-money-neg, bg-pos-bg/bg-neg-bg/bg-warn-bg, text-warn-ink */
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-soft: var(--soft);
+  --color-hairline: var(--hairline);
+  --color-coral: var(--coral);
+  --color-coral-text: var(--coral-text);
+  --color-money-pos: var(--money-pos);
+  --color-money-neg: var(--money-neg);
+  --color-pos-bg: var(--pos-bg);
+  --color-neg-bg: var(--neg-bg);
+  --color-warn-bg: var(--warn-bg);
+  --color-warn-ink: var(--warn-ink);
+
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -48,73 +67,115 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* ── Compound design system — LIGHT (warm paper) ──
+   Raw palette (DESIGN.md §4) + shadcn semantic mappings so existing
+   primitives reskin via tokens. "Money is (almost) the only color":
+   coral = you/brand, green/red = money direction, everything else ink on paper. */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* raw palette */
+  --paper: #fbf7f0;
+  --surface: #ffffff;
+  --ink: #1b1a17;
+  --soft: #6b6557;
+  --hairline: #e7e0d4;
+  --coral: #fb7a3c;
+  --coral-text: #ffffff;
+  --money-pos: #1f9d57;
+  --money-neg: #d8402f;
+  --pos-bg: #e8f5ef;
+  --neg-bg: #fbe9e7;
+  --warn-bg: #fef3ec;
+  --warn-ink: #c25a1a;
+
+  /* shadcn semantic names → Compound palette */
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
+  --primary: var(--coral);
+  --primary-foreground: var(--coral-text);
+  --secondary: #f2ece0;
+  --secondary-foreground: var(--ink);
+  --muted: #f2ece0;
+  --muted-foreground: var(--soft);
+  --accent: #f2ece0;
+  --accent-foreground: var(--ink);
+  --destructive: var(--money-neg);
+  --border: var(--hairline);
+  --input: var(--hairline);
+  --ring: var(--coral);
+  /* charts receive resolved values via chart-data.ts; these are fallbacks */
+  --chart-1: var(--coral);
+  --chart-2: var(--money-pos);
+  --chart-3: var(--soft);
+  --chart-4: var(--ink);
+  --chart-5: var(--hairline);
+  --radius: 0.75rem;
+  --sidebar: var(--surface);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--coral);
+  --sidebar-primary-foreground: var(--coral-text);
+  --sidebar-accent: #f2ece0;
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--hairline);
+  --sidebar-ring: var(--coral);
+
+  color-scheme: light;
 }
 
+/* ── Compound design system — DARK (warm charcoal) ── */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* raw palette */
+  --paper: #15151b;
+  --surface: #1e1e26;
+  --ink: #ececf0;
+  --soft: #8b8b96;
+  --hairline: rgba(255, 255, 255, 0.08);
+  --coral: #ff8a52;
+  --coral-text: #15151b;
+  --money-pos: #4fd08a;
+  --money-neg: #ff6b5c;
+  --pos-bg: rgba(79, 208, 138, 0.12);
+  --neg-bg: rgba(255, 107, 92, 0.12);
+  --warn-bg: rgba(255, 138, 82, 0.12);
+  --warn-ink: #ff8a52;
+
+  /* shadcn semantic names → Compound palette */
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
+  --primary: var(--coral);
+  --primary-foreground: var(--coral-text);
+  --secondary: #262630;
+  --secondary-foreground: var(--ink);
+  --muted: #262630;
+  --muted-foreground: var(--soft);
+  --accent: #262630;
+  --accent-foreground: var(--ink);
+  --destructive: var(--money-neg);
+  --border: var(--hairline);
+  --input: rgba(255, 255, 255, 0.12);
+  --ring: var(--coral);
+  --chart-1: var(--coral);
+  --chart-2: var(--money-pos);
+  --chart-3: var(--soft);
+  --chart-4: var(--ink);
+  --chart-5: var(--hairline);
+  --sidebar: var(--surface);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--coral);
+  --sidebar-primary-foreground: var(--coral-text);
+  --sidebar-accent: #262630;
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--hairline);
+  --sidebar-ring: var(--coral);
+
+  color-scheme: dark;
 }
 
 @layer base {
@@ -131,6 +192,7 @@
 
 @layer utilities {
   .tnum {
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: "tnum" 1, "lnum" 1;
   }
 }

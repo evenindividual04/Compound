@@ -1,24 +1,24 @@
 import Link from "next/link";
-import { ArrowUpRight, ArrowDownRight, AlertCircle, Inbox, RefreshCw } from "lucide-react";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { requireHousehold } from "@/lib/current";
 import { todayIST } from "@/lib/dates";
-import { formatINR, formatINRCompact, sub, cmp } from "@/lib/money";
+import { formatINRCompact, sub, cmp } from "@/lib/money";
 import {
   monthSpend,
-  spendTrend,
   netWorthSeries,
   needsAttention,
-  recentTransactions,
 } from "@/lib/ledger/dashboard";
-import { MetricCard } from "@/components/dashboard/metric-card";
-import { NetWorthSpark } from "@/components/dashboard/net-worth-spark";
-import { SpendTrend } from "@/components/dashboard/spend-trend";
-import { toSparkData, toTrendData } from "@/components/dashboard/chart-data";
+import { HomeHeader } from "@/components/home/home-header";
+import { UrgentCards } from "@/components/home/urgent-card";
+import { SpendCard } from "@/components/home/spend-card";
+import { SavingsRing } from "@/components/home/savings-ring";
+import { CompoundCard } from "@/components/home/compound-card";
+import { AddCardTile } from "@/components/home/add-card-tile";
 
-// month helpers
-function monthStart(ymd: string) {
+// ─── Month helpers (verbatim from original) ─────────────────────────────────
+
+function monthStart(ymd: string): string {
   return ymd.slice(0, 7) + "-01";
 }
 
@@ -35,30 +35,81 @@ function prevMonthStart(yyyyMM01: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
 }
 
+// ─── Greeting ────────────────────────────────────────────────────────────────
+
+function timeOfDay(hourIST: number): string {
+  if (hourIST < 12) return "Morning";
+  if (hourIST < 17) return "Afternoon";
+  return "Evening";
+}
+
+// ─── Initials ────────────────────────────────────────────────────────────────
+
+function initials(email: string): string {
+  const local = email.split("@")[0] ?? "";
+  const parts = local.split(/[._-]/);
+  if (parts.length >= 2 && parts[0] && parts[1]) {
+    return ((parts[0][0] ?? "") + (parts[1][0] ?? "")).toUpperCase();
+  }
+  return local.slice(0, 2).toUpperCase();
+}
+
+// ─── Projection target (illustrative — see DESIGN.md §14, math not locked) ──
+
+function computeProjectionTarget(
+  currentNetWorth: number,
+  monthlySaved: number, // approximate monthly savings (may be negative/zero)
+): string {
+  // illustrative projection — see DESIGN.md §14 (math not locked)
+  // Assumes: current monthly saved pace continues; 10% p.a. return on accumulated corpus.
+  // Target horizon: age 39. User is ~22 now → 17 years = 204 months.
+  const MONTHS = 204;
+  const MONTHLY_RATE = 0.10 / 12; // 10% p.a. → monthly (illustrative)
+
+  const monthlySavedSafe = Math.max(monthlySaved, 0);
+
+  // Future value of existing corpus compounded
+  const fvCorpus = currentNetWorth * Math.pow(1 + MONTHLY_RATE, MONTHS);
+  // Future value of monthly contributions (annuity formula)
+  const fvContributions =
+    monthlySavedSafe > 0
+      ? monthlySavedSafe * ((Math.pow(1 + MONTHLY_RATE, MONTHS) - 1) / MONTHLY_RATE)
+      : 0;
+
+  const total = fvCorpus + fvContributions;
+
+  // Format as compact string (treat as a money string for formatINRCompact)
+  // Number() safe here — this is a purely illustrative display statistic
+  return formatINRCompact(Math.max(total, 0).toFixed(4));
+}
+
+// ─── Page ────────────────────────────────────────────────────────────────────
+
 export default async function DashboardPage() {
-  const { householdId } = await requireHousehold();
+  const { householdId, email } = await requireHousehold();
   const today = todayIST();
   const thisMonthStart = monthStart(today);
   const lastMonthStart = prevMonthStart(thisMonthStart);
 
-  // Parallel queries — all fast (rollups/balances/light)
+  // Hour in IST for greeting (computed later via toLocaleString)
+
+  // Parallel data fetches
   const [
     thisSpend,
     lastSpend,
-    trend,
     nwSeries,
     attention,
-    recent,
     budgetData,
     nwNow,
+    incomeData,
+    topCatRes,
   ] = await Promise.all([
     monthSpend(db, householdId, thisMonthStart),
     monthSpend(db, householdId, lastMonthStart),
-    spendTrend(db, householdId, 6),
     netWorthSeries(db, householdId, 30),
     needsAttention(db, householdId),
-    recentTransactions(db, householdId, 5),
-    // Budget: Σ assigned − Σ spent this month
+
+    // Budget: Σ assigned vs Σ |spent| this month (verbatim from original)
     db.execute(sql`
       SELECT
         COALESCE(SUM(ba.assigned), 0)::numeric(19,4)::text AS total_assigned,
@@ -71,7 +122,8 @@ export default async function DashboardPage() {
       WHERE ba.household_id = ${householdId}::uuid
         AND ba.month = ${thisMonthStart}::date
     `),
-    // Latest net worth scalar
+
+    // Latest net worth scalar (verbatim from original)
     db.execute(sql`
       SELECT COALESCE(SUM(b.balance), 0)::numeric(19,4)::text AS nw
       FROM (
@@ -85,216 +137,170 @@ export default async function DashboardPage() {
         ORDER BY b.account_id, b.date DESC
       ) b
     `),
+
+    // Income for savings ring (inline — not in src/lib)
+    db.execute(sql`
+      SELECT COALESCE(SUM(r.amount), 0)::numeric(19,4)::text AS income
+      FROM rollups r
+      JOIN categories c ON c.id = r.category_id
+      WHERE r.household_id = ${householdId}::uuid
+        AND r.month = ${thisMonthStart}::date
+        AND c.classification = 'income'
+    `),
+
+    // Top category by spend (verbatim from original)
+    db.execute(sql`
+      SELECT
+        COALESCE(c.name, 'Uncategorized') AS category_name,
+        ABS(r.amount)::numeric(19,4)::text AS amount
+      FROM rollups r
+      LEFT JOIN categories c ON c.id = r.category_id
+      WHERE r.household_id = ${householdId}::uuid
+        AND r.month = ${thisMonthStart}::date
+        AND r.amount < 0
+        AND (r.category_id IS NULL OR c.classification = 'expense')
+      ORDER BY ABS(r.amount) DESC
+      LIMIT 1
+    `),
   ]);
 
-  // Budget calc
+  // ── Budget ──────────────────────────────────────────────────────────────────
   const budgetRow = (
     budgetData as unknown as {
       rows: { total_assigned: string; total_spent: string; allocation_count: number }[];
     }
   ).rows[0];
   const hasAllocations = (budgetRow?.allocation_count ?? 0) > 0;
-  const budgetLeft = hasAllocations
-    ? sub(budgetRow.total_assigned, budgetRow.total_spent)
-    : null;
+  const budgetLeft =
+    hasAllocations && budgetRow
+      ? sub(budgetRow.total_assigned, budgetRow.total_spent)
+      : null;
 
-  // Net worth scalar
+  // ── Net worth ───────────────────────────────────────────────────────────────
   const netWorthNow = (nwNow as unknown as { rows: { nw: string }[] }).rows[0]?.nw ?? "0.0000";
 
-  // Spend delta (positive = spending MORE = bad)
-  const spendDiff = sub(thisSpend, lastSpend);
-  const spendingMore = cmp(thisSpend, lastSpend) > 0;
+  // ── Income + savings ring ───────────────────────────────────────────────────
+  const rawIncome = (incomeData as unknown as { rows: { income: string }[] }).rows[0]?.income ?? "0.0000";
+  // Income from rollups comes as a positive sum (classification=income, amounts stored positive)
+  const income = rawIncome;
+  const hasIncome = cmp(income, "0") > 0;
+  const saved = hasIncome ? sub(income, thisSpend) : "0.0000";
+  // savingsRate as a display Number (% stat, derived — Number() safe)
+  const savingsRate = hasIncome ? Math.max(parseFloat(saved) / parseFloat(income), 0) : 0;
+  const savingsPct = Math.round(savingsRate * 100);
+  // Amount needed to hit 30% target
+  const targetSaved = hasIncome
+    ? (parseFloat(income) * 0.3).toFixed(4)
+    : null;
+  const hintAmount =
+    hasIncome && targetSaved && cmp(saved, targetSaved) < 0
+      ? sub(targetSaved, saved)
+      : null;
 
-  // Top category from trend data (most-spent category this month — use monthSpendByCategory implicitly)
-  // We'll use the first trend point for current month; top category is from a separate fast path:
-  const topCatRes = await db.execute(sql`
-    SELECT
-      COALESCE(c.name, 'Uncategorized') AS category_name,
-      ABS(r.amount)::numeric(19,4)::text AS amount
-    FROM rollups r
-    LEFT JOIN categories c ON c.id = r.category_id
-    WHERE r.household_id = ${householdId}::uuid
-      AND r.month = ${thisMonthStart}::date
-      AND r.amount < 0
-      AND (r.category_id IS NULL OR c.classification = 'expense')
-    ORDER BY ABS(r.amount) DESC
-    LIMIT 1
-  `);
+  // ── Spend delta pill ────────────────────────────────────────────────────────
+  // deltaPct is a derived display stat — Number() safe (not a stored money value)
+  const spendingMore = cmp(thisSpend, lastSpend) > 0;
+  let deltaPct: number | null = null;
+  const lastSpendNum = parseFloat(lastSpend);
+  if (lastSpendNum > 0) {
+    // Number() safe — this is a derived display percentage, not a stored money value
+    deltaPct = Math.round(
+      Math.abs((parseFloat(thisSpend) - lastSpendNum) / lastSpendNum) * 100,
+    );
+  }
+
+  // ── Top category + pace insight ─────────────────────────────────────────────
   const topCat = (topCatRes as unknown as { rows: { category_name: string; amount: string }[] })
     .rows[0] ?? null;
 
-  // Convert to chart-safe number props at RSC boundary (display-only)
-  const sparkData = toSparkData(nwSeries);
-  const trendData = toTrendData(trend);
-  const currentMonthKey = thisMonthStart.slice(0, 7);
+  // prevMonthPct: how much we're pacing vs last month (derived stat — Number() safe)
+  let prevMonthPct: number | null = null;
+  if (lastSpendNum > 0) {
+    // Number() safe — derived display stat only
+    prevMonthPct = Math.round(((parseFloat(thisSpend) - lastSpendNum) / lastSpendNum) * 100);
+  }
+
+  // ── Net worth month gain ─────────────────────────────────────────────────────
+  // Last value minus first value in the 30-day series
+  const nwFirst = nwSeries[0]?.netWorth ?? netWorthNow;
+  const nwLast = nwSeries[nwSeries.length - 1]?.netWorth ?? netWorthNow;
+  const monthGain = sub(nwLast, nwFirst);
+
+  // ── Projection (illustrative — DESIGN.md §14, math not locked) ───────────────
+  // Number() safe — purely illustrative display statistic
+  const projectionTarget = computeProjectionTarget(
+    parseFloat(netWorthNow),
+    parseFloat(saved),
+  );
+
+  // ── Attention count for bell badge ───────────────────────────────────────────
+  const attentionCount = attention.inbox + attention.staleAnchors.length;
+
+  // ── Greeting ─────────────────────────────────────────────────────────────────
+  // Derive IST hour directly from today string (date is IST; time we compute fresh)
+  const nowIST = new Date(
+    new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }),
+  );
+  const greeting = `${timeOfDay(nowIST.getHours())}.`;
+
+  // ── Labels ───────────────────────────────────────────────────────────────────
+  const currentMonthLabel = monthLabel(thisMonthStart).toUpperCase();
+  const prevMonthName = monthLabel(lastMonthStart).split(" ")[0] ?? "last month";
 
   return (
-    <div className="min-h-screen bg-background px-4 pt-6">
-      {/* ── Hero ── */}
-      <section className="flex flex-col items-start gap-1 pb-6">
-        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          {monthLabel(thisMonthStart)}
-        </p>
-        <p className="text-xs text-muted-foreground">spent this month</p>
-        <div className="flex items-end gap-3">
-          <p className="tnum text-5xl font-semibold tracking-tight text-foreground">
-            {formatINR(thisSpend)}
-          </p>
-          {/* Delta badge vs last month */}
-          {cmp(spendDiff, "0") !== 0 && (
-            <span
-              className={`mb-1 flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-medium ${
-                spendingMore
-                  ? "bg-destructive/15 text-destructive"
-                  : "bg-emerald-500/15 text-emerald-500"
-              }`}
-            >
-              {spendingMore ? (
-                <ArrowUpRight className="h-3 w-3" />
-              ) : (
-                <ArrowDownRight className="h-3 w-3" />
-              )}
-              {formatINRCompact(spendDiff)}
-            </span>
-          )}
-        </div>
-      </section>
+    <div className="flex flex-col gap-[10px] bg-paper min-h-screen pt-1 pb-4">
+      {/* Header */}
+      <HomeHeader
+        monthLabel={currentMonthLabel}
+        greeting={greeting}
+        attentionCount={attentionCount}
+        avatarInitials={initials(email)}
+      />
 
-      {/* ── Needs attention strip ── */}
-      {(attention.inbox > 0 ||
-        attention.anomalies > 0 ||
-        attention.staleAnchors.length > 0) && (
-        <section className="mb-6 flex flex-wrap gap-2">
-          {attention.inbox > 0 && (
-            <Link
-              href="/inbox"
-              className="flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
-            >
-              <Inbox className="h-3 w-3" />
-              Inbox {attention.inbox}
-            </Link>
-          )}
-          {attention.anomalies > 0 && (
-            <span className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-              <AlertCircle className="h-3 w-3" />
-              {attention.anomalies} {attention.anomalies === 1 ? "anomaly" : "anomalies"}
-            </span>
-          )}
-          {attention.staleAnchors.map((anchor) => (
-            <Link
-              key={anchor.accountId}
-              href={`/accounts/${anchor.accountId}`}
-              className="flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-500"
-            >
-              <RefreshCw className="h-3 w-3" />
-              Update {anchor.accountName}
-            </Link>
-          ))}
-        </section>
-      )}
+      {/* Edit summary hint */}
+      <div className="flex justify-end px-4">
+        <Link href="/browse" className="text-[11px] font-semibold text-coral">
+          Edit summary →
+        </Link>
+      </div>
 
-      {/* ── Metric cards ── */}
-      <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {/* Net worth */}
-        <MetricCard
-          label="Net Worth"
-          value={formatINRCompact(netWorthNow)}
-          sub={
-            <div className="mt-1">
-              <NetWorthSpark data={sparkData} />
-            </div>
-          }
-        />
+      {/* Urgent cards — above spend */}
+      <UrgentCards attention={attention} />
 
-        {/* Budget left */}
-        <MetricCard
-          label="Budget left"
-          value={
-            hasAllocations && budgetLeft !== null ? (
-              <span
-                className={
-                  cmp(budgetLeft, "0") >= 0 ? "text-emerald-500" : "text-destructive"
-                }
-              >
-                {formatINRCompact(budgetLeft)}
-              </span>
-            ) : (
-              <span className="text-muted-foreground text-sm">—</span>
-            )
-          }
-          action={
-            !hasAllocations ? (
-              <Link
-                href="/budgets"
-                className="text-xs text-primary underline-offset-2 hover:underline"
-              >
-                Set budgets
-              </Link>
-            ) : undefined
-          }
-        />
+      {/* Spend card */}
+      <SpendCard
+        thisSpend={thisSpend}
+        spendingMore={spendingMore}
+        deltaPct={deltaPct}
+        prevMonthLabel={prevMonthName}
+        topCategoryName={topCat?.category_name ?? null}
+        prevMonthPct={prevMonthPct}
+        hasAllocations={hasAllocations}
+        budgetAssigned={budgetRow?.total_assigned ?? null}
+        budgetLeft={budgetLeft}
+        budgetSpent={budgetRow?.total_spent ?? null}
+      />
 
-        {/* Top category */}
-        <MetricCard
-          label="Top category"
-          value={
-            topCat ? (
-              <span className="truncate">{topCat.category_name}</span>
-            ) : (
-              <span className="text-muted-foreground text-sm">—</span>
-            )
-          }
-          sub={topCat ? formatINR(topCat.amount) : undefined}
-        />
-      </section>
+      {/* Savings ring */}
+      <SavingsRing
+        saved={saved}
+        income={income}
+        savingsRate={savingsRate}
+        savingsPct={savingsPct}
+        hintAmount={hintAmount}
+        hasIncome={hasIncome}
+      />
 
-      {/* ── Spend trend ── */}
-      <section className="mb-6">
-        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          6-month spend
-        </p>
-        <SpendTrend data={trendData} currentMonth={currentMonthKey} />
-      </section>
+      {/* Compound card */}
+      <CompoundCard
+        corpus={netWorthNow}
+        monthGain={monthGain}
+        nwSeries={nwSeries}
+        projectionTarget={projectionTarget}
+      />
 
-      {/* ── Recent transactions ── */}
-      <section className="mb-8">
-        <div className="mb-3 flex items-center justify-between">
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Recent
-          </p>
-          <Link
-            href="/transactions"
-            className="text-xs text-primary underline-offset-2 hover:underline"
-          >
-            View all
-          </Link>
-        </div>
-        {recent.length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">No transactions yet</p>
-        ) : (
-          <ul className="divide-y divide-border rounded-xl ring-1 ring-foreground/10">
-            {recent.map((txn) => (
-              <li key={txn.entryId} className="flex items-center justify-between px-4 py-3">
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-sm font-medium leading-snug">
-                    {txn.merchant ?? txn.description ?? "—"}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {txn.categoryName ?? "Uncategorized"} · {txn.date}
-                  </span>
-                </div>
-                <span
-                  className={`tnum text-sm font-medium ${
-                    txn.amount.startsWith("-") ? "text-destructive" : "text-emerald-500"
-                  }`}
-                >
-                  {formatINR(txn.amount)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      {/* Add-a-card tile */}
+      <AddCardTile />
     </div>
   );
 }

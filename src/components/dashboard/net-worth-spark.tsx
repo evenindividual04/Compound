@@ -25,7 +25,7 @@ export function NetWorthSpark({ data }: Props) {
           <Line
             type="monotone"
             dataKey="value"
-            stroke="hsl(var(--primary))"
+            stroke="var(--coral)"
             strokeWidth={1.5}
             dot={false}
             isAnimationActive={false}

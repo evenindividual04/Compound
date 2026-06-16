@@ -33,12 +33,12 @@ export function TxnRowItem({ row, onClick }: Props) {
     <button
       type="button"
       onClick={() => onClick(row)}
-      className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40 active:bg-muted/60"
+      className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted active:bg-muted/80"
     >
       {/* Left: description + meta */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
-          <span className="truncate text-sm font-medium">
+          <span className="truncate text-sm font-medium text-ink">
             {row.merchant || row.description || "—"}
           </span>
           {isPending && (
@@ -59,10 +59,10 @@ export function TxnRowItem({ row, onClick }: Props) {
               {row.categoryName}
             </Badge>
           ) : !isTransfer ? (
-            <span className="text-[11px] text-muted-foreground italic">uncategorized</span>
+            <span className="text-[11px] text-soft italic">uncategorized</span>
           ) : null}
-          <span className="text-[11px] text-muted-foreground">{row.accountName}</span>
-          <span className="text-[11px] text-muted-foreground">{row.date}</span>
+          <span className="text-[11px] text-soft">{row.accountName}</span>
+          <span className="text-[11px] text-soft">{row.date}</span>
         </div>
       </div>
 
@@ -71,10 +71,10 @@ export function TxnRowItem({ row, onClick }: Props) {
         className={cn(
           "tnum shrink-0 text-sm font-medium",
           isTransfer
-            ? "text-muted-foreground"
+            ? "text-soft"
             : isIncome
-              ? "text-green-500"
-              : "text-foreground",
+              ? "text-money-pos"
+              : "text-money-neg",
         )}
       >
         {formatINR(row.amount)}
