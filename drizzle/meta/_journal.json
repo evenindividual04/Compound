@@ -43,6 +43,13 @@
       "when": 1781189272628,
       "tag": "0005_review_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1781640776404,
+      "tag": "0006_purple_bloodaxe",
+      "breakpoints": true
     }
   ]
 }

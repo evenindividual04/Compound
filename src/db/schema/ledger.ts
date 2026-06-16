@@ -10,7 +10,8 @@ import {
   uniqueIndex,
   index,
 } from "drizzle-orm/pg-core";
-import { accounts, categories } from "./core";
+import { sql } from "drizzle-orm";
+import { accounts, categories, households } from "./core";
 
 export const entryType = pgEnum("entry_type", ["transaction", "trade", "valuation"]);
 export const entryStatus = pgEnum("entry_status", ["pending", "posted", "reconciled"]);
@@ -158,4 +159,53 @@ export const rollups = pgTable(
     amount: numeric("amount", { precision: 19, scale: 4, mode: "string" }).notNull(),
   },
   (t) => [uniqueIndex("rollups_pk").on(t.householdId, t.month, t.categoryId)],
+);
+
+// ── P2: investments ───────────────────────────────────────────────────────────
+export const instrumentKind = pgEnum("instrument_kind", ["mf", "equity"]);
+
+export const instruments = pgTable(
+  "instruments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => households.id),
+    kind: instrumentKind("kind").notNull(),
+    name: text("name").notNull(),
+    symbol: text("symbol"),
+    isin: text("isin"),
+    amfiCode: text("amfi_code"),
+  },
+  (t) => [
+    uniqueIndex("instruments_identity").on(
+      t.householdId,
+      t.kind,
+      sql`coalesce(${t.isin}, ${t.symbol}, ${t.amfiCode})`,
+    ),
+  ],
+);
+
+export const trades = pgTable("trades", {
+  entryId: uuid("entry_id")
+    .primaryKey()
+    .references(() => entries.id, { onDelete: "cascade" }),
+  instrumentId: uuid("instrument_id")
+    .notNull()
+    .references(() => instruments.id),
+  side: text("side", { enum: ["buy", "sell"] }).notNull(),
+  units: numeric("units", { precision: 24, scale: 6, mode: "string" }).notNull(),
+  price: numeric("price", { precision: 24, scale: 6, mode: "string" }).notNull(),
+});
+
+export const prices = pgTable(
+  "prices",
+  {
+    instrumentId: uuid("instrument_id")
+      .notNull()
+      .references(() => instruments.id, { onDelete: "cascade" }),
+    date: date("date").notNull(),
+    nav: numeric("nav", { precision: 24, scale: 6, mode: "string" }).notNull(),
+  },
+  (t) => [uniqueIndex("prices_instrument_date").on(t.instrumentId, t.date)],
 );

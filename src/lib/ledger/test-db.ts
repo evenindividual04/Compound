@@ -16,7 +16,8 @@ export type TestDb = NonNullable<typeof tdb>;
 export async function resetDb() {
   await tdb.execute(sql`
     TRUNCATE TABLE entry_events, rejected_transfers, transfers, transaction_splits,
-      entry_tags, valuations, transactions, entries, import_rows, imports, import_configs,
+      entry_tags, valuations, transactions, prices, trades, instruments, entries,
+      import_rows, imports, import_configs,
       rules, budget_allocations, ledger_anomalies, balances, rollups,
       tags, categories, accounts, users, households CASCADE
   `);
