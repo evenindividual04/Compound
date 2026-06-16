@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { sql } from "drizzle-orm";
+import { sql, eq } from "drizzle-orm";
 import { tdb, resetDb, seedBasics } from "./test-db";
 import * as schema from "@/db/schema";
 import { createTransaction, createValuation } from "./write";
@@ -217,5 +217,48 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("invariant checks", () => {
       .from(schema.ledgerAnomalies);
 
     expect(after.length).toBe(before.length);
+  });
+
+  // --------------------------------------------------------------------------
+  // 8. oversold_holding: net units driven negative
+  // --------------------------------------------------------------------------
+  it("flags an oversold holding (units driven negative)", async () => {
+    const { hh } = await seedBasics();
+    const [acct] = await tdb.insert(schema.accounts).values({ householdId: hh.id, name: "Z", kind: "investment", openingDate: "2026-01-01" }).returning();
+    const [inst] = await tdb.insert(schema.instruments).values({ householdId: hh.id, kind: "mf", name: "PPFC", amfiCode: "1" }).returning();
+    const { createTrade } = await import("@/lib/invest/trade");
+    await createTrade(tdb, { accountId: acct.id, instrumentId: inst.id, date: "2026-02-01", side: "buy", units: "10", price: "60" });
+    await createTrade(tdb, { accountId: acct.id, instrumentId: inst.id, date: "2026-03-01", side: "sell", units: "25", price: "60" });
+    const counts = await runInvariantChecks(tdb);
+    expect(counts.oversold_holding).toBe(1);
+  });
+
+  // --------------------------------------------------------------------------
+  // 9. trade_cash_mismatch: entry.amount disagrees with units*price
+  // --------------------------------------------------------------------------
+  it("flags a trade whose cash amount disagrees with units*price", async () => {
+    const { hh } = await seedBasics();
+    const [acct] = await tdb.insert(schema.accounts).values({ householdId: hh.id, name: "Z", kind: "investment", openingDate: "2026-01-01" }).returning();
+    const [inst] = await tdb.insert(schema.instruments).values({ householdId: hh.id, kind: "mf", name: "PPFC", amfiCode: "2" }).returning();
+    const { createTrade } = await import("@/lib/invest/trade");
+    const entryId = await createTrade(tdb, { accountId: acct.id, instrumentId: inst.id, date: "2026-02-01", side: "buy", units: "10", price: "60" });
+    // corrupt the cash amount (should be -600): set to -999
+    await tdb.update(schema.entries).set({ amount: "-999.0000" }).where(eq(schema.entries.id, entryId));
+    const counts = await runInvariantChecks(tdb);
+    expect(counts.trade_cash_mismatch).toBe(1);
+  });
+
+  // --------------------------------------------------------------------------
+  // 10. stale_price: held instrument with no recent price
+  // --------------------------------------------------------------------------
+  it("flags a held instrument with no recent price", async () => {
+    const { hh } = await seedBasics();
+    const [acct] = await tdb.insert(schema.accounts).values({ householdId: hh.id, name: "Z", kind: "investment", openingDate: "2026-01-01" }).returning();
+    const [inst] = await tdb.insert(schema.instruments).values({ householdId: hh.id, kind: "mf", name: "PPFC", amfiCode: "3" }).returning();
+    const { createTrade } = await import("@/lib/invest/trade");
+    await createTrade(tdb, { accountId: acct.id, instrumentId: inst.id, date: "2026-02-01", side: "buy", units: "10", price: "60" });
+    // no prices row at all → stale
+    const counts = await runInvariantChecks(tdb);
+    expect(counts.stale_price).toBe(1);
   });
 });

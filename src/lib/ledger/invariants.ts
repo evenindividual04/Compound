@@ -23,7 +23,10 @@ export type AnomalyKind =
   | "split_mismatch"
   | "anchor_residual"
   | "sign_mismatch"
-  | "stale_series";
+  | "stale_series"
+  | "trade_cash_mismatch"
+  | "oversold_holding"
+  | "stale_price";
 
 type AnomalyRow = {
   kind: AnomalyKind;
@@ -371,6 +374,123 @@ async function checkStaleSeries(db: Db): Promise<AnomalyRow[]> {
   }));
 }
 
+/**
+ * 7. trade_cash_mismatch: a trade entry whose |cash amount| disagrees with
+ *    units × price by more than 0.01. One anomaly per offending entry.
+ */
+async function checkTradeCashMismatch(db: Db): Promise<AnomalyRow[]> {
+  const res = await db.execute(sql`
+    SELECT
+      e.id AS entry_id,
+      e.account_id,
+      e.amount::numeric AS cash_amount,
+      t.units::numeric AS units,
+      t.price::numeric AS price,
+      (t.units::numeric * t.price::numeric) AS gross
+    FROM entries e
+    JOIN trades t ON t.entry_id = e.id
+    WHERE e.deleted_at IS NULL
+      AND ABS(ABS(e.amount::numeric) - (t.units::numeric * t.price::numeric)) > 0.01
+  `);
+  return (
+    res as unknown as {
+      rows: {
+        entry_id: string;
+        account_id: string;
+        cash_amount: string;
+        units: string;
+        price: string;
+        gross: string;
+      }[];
+    }
+  ).rows.map((r) => ({
+    kind: "trade_cash_mismatch" as const,
+    detail: {
+      entryId: r.entry_id,
+      accountId: r.account_id,
+      cashAmount: r.cash_amount,
+      units: r.units,
+      price: r.price,
+      gross: r.gross,
+    },
+  }));
+}
+
+/**
+ * 8. oversold_holding: net units (Σ buy − Σ sell) for an (account, instrument)
+ *    over non-deleted, non-pending trades is negative. One anomaly per pair.
+ */
+async function checkOversoldHolding(db: Db): Promise<AnomalyRow[]> {
+  const res = await db.execute(sql`
+    SELECT
+      e.account_id,
+      t.instrument_id,
+      SUM(CASE WHEN t.side = 'buy' THEN t.units::numeric ELSE -t.units::numeric END) AS net_units
+    FROM entries e
+    JOIN trades t ON t.entry_id = e.id
+    WHERE e.deleted_at IS NULL
+      AND e.status <> 'pending'
+    GROUP BY e.account_id, t.instrument_id
+    HAVING SUM(CASE WHEN t.side = 'buy' THEN t.units::numeric ELSE -t.units::numeric END) < 0
+  `);
+  return (
+    res as unknown as {
+      rows: {
+        account_id: string;
+        instrument_id: string;
+        net_units: string;
+      }[];
+    }
+  ).rows.map((r) => ({
+    kind: "oversold_holding" as const,
+    detail: {
+      accountId: r.account_id,
+      instrumentId: r.instrument_id,
+      netUnits: r.net_units,
+    },
+  }));
+}
+
+/**
+ * 9. stale_price: an instrument currently held with positive net units
+ *    (non-deleted, non-pending) in an investment account, with NO prices row
+ *    dated within the last 4 days. One anomaly per offending instrument.
+ */
+async function checkStalePrice(db: Db): Promise<AnomalyRow[]> {
+  const res = await db.execute(sql`
+    SELECT
+      t.instrument_id,
+      SUM(CASE WHEN t.side = 'buy' THEN t.units::numeric ELSE -t.units::numeric END) AS net_units
+    FROM entries e
+    JOIN trades   t ON t.entry_id = e.id
+    JOIN accounts a ON a.id = e.account_id
+    WHERE e.deleted_at IS NULL
+      AND e.status <> 'pending'
+      AND a.kind = 'investment'
+    GROUP BY t.instrument_id
+    HAVING SUM(CASE WHEN t.side = 'buy' THEN t.units::numeric ELSE -t.units::numeric END) > 0
+      AND NOT EXISTS (
+        SELECT 1 FROM prices p
+        WHERE p.instrument_id = t.instrument_id
+          AND p.date >= CURRENT_DATE - INTERVAL '4 days'
+      )
+  `);
+  return (
+    res as unknown as {
+      rows: {
+        instrument_id: string;
+        net_units: string;
+      }[];
+    }
+  ).rows.map((r) => ({
+    kind: "stale_price" as const,
+    detail: {
+      instrumentId: r.instrument_id,
+      netUnits: r.net_units,
+    },
+  }));
+}
+
 // ---- public API -------------------------------------------------------------
 
 export async function runInvariantChecks(
@@ -383,6 +503,9 @@ export async function runInvariantChecks(
     anchors,
     signs,
     stale,
+    tradeCash,
+    oversold,
+    stalePrice,
   ] = await Promise.all([
     checkOrphanTransferLegs(db),
     checkTransferImbalance(db),
@@ -390,17 +513,33 @@ export async function runInvariantChecks(
     checkAnchorResidual(db),
     checkSignMismatch(db),
     checkStaleSeries(db),
+    checkTradeCashMismatch(db),
+    checkOversoldHolding(db),
+    checkStalePrice(db),
   ]);
 
-  await insertAnomalies(db, [...orphans, ...imbalances, ...splits, ...anchors, ...signs, ...stale]);
+  await insertAnomalies(db, [
+    ...orphans,
+    ...imbalances,
+    ...splits,
+    ...anchors,
+    ...signs,
+    ...stale,
+    ...tradeCash,
+    ...oversold,
+    ...stalePrice,
+  ]);
 
-  const [c1, c2, c3, c4, c5, c6] = await Promise.all([
+  const [c1, c2, c3, c4, c5, c6, c7, c8, c9] = await Promise.all([
     countOpen(db, "orphan_transfer_leg"),
     countOpen(db, "transfer_imbalance"),
     countOpen(db, "split_mismatch"),
     countOpen(db, "anchor_residual"),
     countOpen(db, "sign_mismatch"),
     countOpen(db, "stale_series"),
+    countOpen(db, "trade_cash_mismatch"),
+    countOpen(db, "oversold_holding"),
+    countOpen(db, "stale_price"),
   ]);
 
   return {
@@ -410,5 +549,8 @@ export async function runInvariantChecks(
     anchor_residual: c4,
     sign_mismatch: c5,
     stale_series: c6,
+    trade_cash_mismatch: c7,
+    oversold_holding: c8,
+    stale_price: c9,
   };
 }
