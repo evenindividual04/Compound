@@ -350,8 +350,7 @@ export function QuickEntry({
               setOpen(false);
               onRecordTrade();
             }}
-            className="mt-4 text-sm font-medium"
-            style={{ color: "var(--coral)" }}
+            className="mt-4 text-sm font-medium text-coral"
           >
             Record trade →
           </button>

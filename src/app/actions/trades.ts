@@ -8,9 +8,14 @@ import * as schema from "@/db/schema";
 import { requireHousehold } from "@/lib/current";
 import { createTrade } from "@/lib/invest/trade";
 import { afterWrite } from "@/lib/ledger/derive";
+import { cmp } from "@/lib/money";
 
 // units/price are NUMERIC strings end-to-end — never Number() a money value (AGENTS.md).
-const PositiveDecimal = z.string().regex(/^\d+(\.\d+)?$/, "Must be a positive number");
+// Enforce strictly-positive at the boundary (the regex alone would admit "0"/"0.00").
+const PositiveDecimal = z
+  .string()
+  .regex(/^\d+(\.\d+)?$/, "Must be a positive number")
+  .refine((v) => cmp(v, "0") > 0, "Must be greater than zero");
 
 const NewInstrumentSchema = z.object({
   kind: z.enum(["mf", "equity"]),

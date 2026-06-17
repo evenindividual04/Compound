@@ -221,6 +221,7 @@ export function TradeForm({ accounts, instruments, open, onOpenChange }: TradeFo
                     key={k}
                     type="button"
                     onClick={() => setNewKind(k)}
+                    aria-pressed={newKind === k}
                     className={`flex-1 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
                       newKind === k
                         ? "border-ink bg-ink text-surface"
