@@ -6,9 +6,10 @@ import { todayIST } from "@/lib/dates";
 import { formatINRCompact, sub, cmp } from "@/lib/money";
 import {
   monthSpend,
-  netWorthSeries,
   needsAttention,
 } from "@/lib/ledger/dashboard";
+import { netWorth } from "@/lib/ledger/derive";
+import { netWorthBreakdownSeries } from "@/lib/ledger/networth-series";
 import { HomeHeader } from "@/components/home/home-header";
 import { UrgentCards } from "@/components/home/urgent-card";
 import { SpendCard } from "@/components/home/spend-card";
@@ -97,16 +98,19 @@ export default async function DashboardPage() {
   const [
     thisSpend,
     lastSpend,
-    nwSeries,
+    nwBreakdown,
     attention,
     budgetData,
-    nwNow,
+    netWorthNow,
     incomeData,
     topCatRes,
   ] = await Promise.all([
     monthSpend(db, householdId, thisMonthStart),
     monthSpend(db, householdId, lastMonthStart),
-    netWorthSeries(db, householdId, 30),
+    // Net-worth-by-asset-class, monthly over 12 months. Investment accounts are
+    // valued at market value (holdingValueAt) — correct for holdings, unlike the
+    // balances-table-only series which would sum trade cash-flows.
+    netWorthBreakdownSeries(db, householdId),
     needsAttention(db, householdId),
 
     // Budget: Σ assigned vs Σ |spent| this month (verbatim from original)
@@ -123,20 +127,9 @@ export default async function DashboardPage() {
         AND ba.month = ${thisMonthStart}::date
     `),
 
-    // Latest net worth scalar (verbatim from original)
-    db.execute(sql`
-      SELECT COALESCE(SUM(b.balance), 0)::numeric(19,4)::text AS nw
-      FROM (
-        SELECT DISTINCT ON (b.account_id) b.balance
-        FROM balances b
-        JOIN accounts a ON a.id = b.account_id
-        WHERE a.household_id = ${householdId}::uuid
-          AND a.status = 'active'
-          AND NOT a.excluded
-          AND b.date <= ${today}
-        ORDER BY b.account_id, b.date DESC
-      ) b
-    `),
+    // Latest net worth scalar — investment-aware (non-investment cash balances +
+    // investment market value via holdingValueAt). Correct for holdings.
+    netWorth(db, householdId, today),
 
     // Income for savings ring (inline — not in src/lib)
     db.execute(sql`
@@ -177,7 +170,7 @@ export default async function DashboardPage() {
       : null;
 
   // ── Net worth ───────────────────────────────────────────────────────────────
-  const netWorthNow = (nwNow as unknown as { rows: { nw: string }[] }).rows[0]?.nw ?? "0.0000";
+  // netWorthNow is the signed NUMERIC string from netWorth() (investment-aware).
 
   // ── Income + savings ring ───────────────────────────────────────────────────
   const rawIncome = (incomeData as unknown as { rows: { income: string }[] }).rows[0]?.income ?? "0.0000";
@@ -221,10 +214,12 @@ export default async function DashboardPage() {
   }
 
   // ── Net worth month gain ─────────────────────────────────────────────────────
-  // Last value minus first value in the 30-day series
-  const nwFirst = nwSeries[0]?.netWorth ?? netWorthNow;
-  const nwLast = nwSeries[nwSeries.length - 1]?.netWorth ?? netWorthNow;
-  const monthGain = sub(nwLast, nwFirst);
+  // Latest net minus ~one-month-ago net, from the (already-boundary) breakdown
+  // series. Derived display stat — the numbers were converted at the chart
+  // boundary; formatting the delta as a string here is display-only.
+  const nwLatest = nwBreakdown[nwBreakdown.length - 1]?.net ?? 0;
+  const nwPrior = nwBreakdown[nwBreakdown.length - 2]?.net ?? nwLatest;
+  const monthGain = (nwLatest - nwPrior).toFixed(4);
 
   // ── Projection (illustrative — DESIGN.md §14, math not locked) ───────────────
   // Number() safe — purely illustrative display statistic
@@ -295,7 +290,7 @@ export default async function DashboardPage() {
       <CompoundCard
         corpus={netWorthNow}
         monthGain={monthGain}
-        nwSeries={nwSeries}
+        breakdown={nwBreakdown}
         projectionTarget={projectionTarget}
       />
 
