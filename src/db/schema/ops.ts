@@ -9,7 +9,10 @@ import {
   date,
   boolean,
   uniqueIndex,
+  index,
+  vector,
 } from "drizzle-orm/pg-core";
+import { households, categories } from "./core";
 
 export const imports = pgTable("imports", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -93,3 +96,20 @@ export const ledgerAnomalies = pgTable("ledger_anomalies", {
   detectedAt: timestamp("detected_at", { withTimezone: true }).notNull().defaultNow(),
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),
 });
+
+export const categorizationExamples = pgTable(
+  "categorization_examples",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id").notNull().references(() => households.id),
+    text: text("text").notNull(),               // normalized merchant/description
+    categoryId: uuid("category_id").notNull().references(() => categories.id),
+    embedding: vector("embedding", { dimensions: 384 }).notNull(),
+    source: text("source", { enum: ["accept", "correct"] }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("catex_identity").on(t.householdId, t.text, t.categoryId),
+    index("catex_embedding").using("hnsw", t.embedding.op("vector_cosine_ops")),
+  ],
+);

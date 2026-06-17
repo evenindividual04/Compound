@@ -19,7 +19,7 @@ export async function resetDb() {
       entry_tags, valuations, transactions, prices, trades, instruments, entries,
       import_rows, imports, import_configs,
       rules, budget_allocations, ledger_anomalies, balances, rollups,
-      tags, categories, accounts, users, households CASCADE
+      tags, categorization_examples, categories, accounts, users, households CASCADE
   `);
 }
 

@@ -57,6 +57,13 @@
       "when": 1781642041782,
       "tag": "0007_far_gauntlet",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1781720459177,
+      "tag": "0008_wakeful_marrow",
+      "breakpoints": true
     }
   ]
 }
