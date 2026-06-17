@@ -1,6 +1,8 @@
 import { sql } from "drizzle-orm";
 import type { Db } from "@/db";
 import * as schema from "@/db/schema";
+import { normalizeMerchant } from "@/lib/import/sms";
+import type { Embedder } from "./embed";
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 export type Executor = Db | Tx;
@@ -19,6 +21,30 @@ export async function recordExample(ex: Executor, e: NewExample): Promise<void> 
       target: [schema.categorizationExamples.householdId, schema.categorizationExamples.text, schema.categorizationExamples.categoryId],
       set: { embedding: e.embedding, source: e.source },
     });
+}
+
+/** Capture a labeled training example from a now-categorized entry. No-op if uncategorized. */
+export async function recordExampleForEntry(
+  db: Db,
+  entryId: string,
+  source: "accept" | "correct",
+  embed: Embedder,
+): Promise<void> {
+  const [row] = await db.execute(sql`
+    SELECT a.household_id, COALESCE(t.merchant, e.description) AS text, t.category_id
+    FROM entries e JOIN transactions t ON t.entry_id = e.id JOIN accounts a ON a.id = e.account_id
+    WHERE e.id = ${entryId}
+  `).then((r) => (r as unknown as { rows: { household_id: string; text: string; category_id: string | null }[] }).rows);
+  if (!row || !row.category_id) return;
+  const text = normalizeMerchant(row.text || "");
+  if (!text) return;
+  await recordExample(db, {
+    householdId: row.household_id,
+    text,
+    categoryId: row.category_id,
+    embedding: await embed(text),
+    source,
+  });
 }
 
 /** k nearest labeled examples by cosine similarity (1 - cosine_distance), descending. */

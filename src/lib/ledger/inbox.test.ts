@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { tdb, resetDb, seedBasics } from "./test-db";
 import * as schema from "@/db/schema";
@@ -6,6 +6,7 @@ import { createTransaction, createValuation } from "./write";
 import { proposeTransfers, confirmTransfer } from "./transfers";
 import { inboxCount, inboxItems, acceptEntry, acceptAll } from "./inbox";
 import { computeBalanceAt } from "./derive";
+import type { Embedder } from "@/lib/categorize/embed";
 
 describe.skipIf(!process.env.TEST_DATABASE_URL)("inbox", () => {
   let s: Awaited<ReturnType<typeof seedBasics>>;
@@ -383,5 +384,32 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("inbox", () => {
     // category is set, so suggestedCategoryId should be null
     expect(items.pendingEntries[0].suggestedCategoryId).toBeNull();
     expect(items.pendingEntries[0].categoryId).toBe(s.groceries.id);
+  });
+
+  // ── 8. Training-example capture on accept ─────────────────────────────────
+
+  it("acceptEntry with categoryId captures a categorization_examples row", async () => {
+    const mockEmbed: Embedder = vi.fn().mockResolvedValue(new Array(384).fill(0.1));
+
+    const entryId = await createTransaction(tdb, {
+      accountId: s.bank.id,
+      date: "2026-05-20",
+      amount: "-250",
+      description: "Swiggy order",
+      status: "pending",
+      source: "import",
+    });
+
+    await acceptEntry(tdb, entryId, "user", s.food.id, mockEmbed);
+
+    const examples = await tdb
+      .select()
+      .from(schema.categorizationExamples)
+      .where(eq(schema.categorizationExamples.householdId, s.hh.id));
+
+    expect(examples).toHaveLength(1);
+    expect(examples[0].categoryId).toBe(s.food.id);
+    expect(examples[0].source).toBe("correct");
+    expect(mockEmbed).toHaveBeenCalledOnce();
   });
 });

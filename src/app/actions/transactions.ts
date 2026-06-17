@@ -9,6 +9,8 @@ import { requireHousehold } from "@/lib/current";
 import { annotate, softDelete } from "@/lib/ledger/write";
 import { afterWrite } from "@/lib/ledger/derive";
 import { setSplits, makeTransferPair } from "@/lib/ledger/edit";
+import { recordExampleForEntry } from "@/lib/categorize/examples";
+import { embed } from "@/lib/categorize/embed";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -63,6 +65,15 @@ export async function recategorize(
     await annotate(db, entryId, { categoryId }, "user");
     await afterWrite(db, { accountId: row.accountId, householdId, date: row.date });
     revalidate();
+
+    if (categoryId) {
+      try {
+        await recordExampleForEntry(db, entryId, "correct", embed);
+      } catch {
+        // Best-effort: training write failure must never block the recategorize.
+      }
+    }
+
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Unknown error" };
