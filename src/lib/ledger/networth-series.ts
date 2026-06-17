@@ -7,8 +7,15 @@
  *
  * Correctness (spec §4.3): investment accounts are valued by MARKET VALUE via
  * `holdingValueAt`, never by summing their trade cash-flows from the balances
- * table. Non-investment accounts use their cash balance (balances table, LOCF
- * ≤ the point date). This mirrors the scalar `netWorth()` in derive.ts.
+ * table. Non-investment accounts use their cash balance read from the `balances`
+ * materialized table (LOCF: latest row ≤ the point date).
+ *
+ * Note: this is NOT a provable identity with the scalar `netWorth()` in
+ * derive.ts — that function derives non-investment balances live from the
+ * `entries` table, whereas this series reads the materialized `balances` cache.
+ * The two agree only when that cache is fresh (which `afterWrite` and the
+ * nightly invariant cron maintain); they can diverge transiently if the cache
+ * is stale. Investment valuation (holdingValueAt) is identical in both.
  *
  * MONEY BOUNDARY: money is NUMERIC strings everywhere in the ledger. This module
  * is the documented RSC/chart boundary — the ONLY place we convert to `number`,
@@ -68,7 +75,7 @@ export async function netWorthBreakdownSeries(
     UNION ALL
     SELECT CURRENT_DATE AS d
   `;
-  const dateRes = await db.execute(sql`SELECT d FROM (${pointDatesSql}) pd ORDER BY d`);
+  const dateRes = await db.execute(sql`SELECT d::text AS d FROM (${pointDatesSql}) pd ORDER BY d`);
   const pointDates = (dateRes as unknown as { rows: { d: string }[] }).rows.map((r) => r.d);
 
   // Non-investment buckets per point date: cash balance LOCF (latest balance
@@ -122,6 +129,21 @@ export async function netWorthBreakdownSeries(
   `);
   const investAccountIds = (investRes as unknown as { rows: { id: string }[] }).rows.map((r) => r.id);
 
+  // Value every (point date × investment account) pair concurrently — one round
+  // trip of latency instead of date×account sequential awaits. Same valuation
+  // semantics (holdingValueAt per account per point date), then reduce into a
+  // per-date market-value sum (string math).
+  const investPairs = pointDates.flatMap((date) =>
+    investAccountIds.map((accountId) => ({ date, accountId })),
+  );
+  const investValues = await Promise.all(
+    investPairs.map((p) => holdingValueAt(db, p.accountId, p.date)),
+  );
+  const investByDate = new Map<string, string>(pointDates.map((d) => [d, "0.0000"]));
+  investPairs.forEach((p, i) => {
+    investByDate.set(p.date, add(investByDate.get(p.date) ?? "0.0000", investValues[i]));
+  });
+
   const points: NetWorthBreakdownPoint[] = [];
   for (const date of pointDates) {
     const nonInvest = nonInvestByDate.get(date);
@@ -129,11 +151,7 @@ export async function netWorthBreakdownSeries(
     const liabilitiesStr = nonInvest?.liabilities ?? "0.0000";
     const otherAssetsStr = nonInvest?.other_assets ?? "0.0000";
 
-    // Market value of all investment accounts at this date (string math).
-    let investStr = "0.0000";
-    for (const accountId of investAccountIds) {
-      investStr = add(investStr, await holdingValueAt(db, accountId, date));
-    }
+    const investStr = investByDate.get(date) ?? "0.0000";
 
     const netStr = add(add(add(cashStr, investStr), otherAssetsStr), liabilitiesStr);
 

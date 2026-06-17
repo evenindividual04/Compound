@@ -16,7 +16,8 @@ export function CompoundCard({
   breakdown,
   projectionTarget,
 }: CompoundCardProps) {
-  // monthGain is a raw decimal string from sub() — negative if starts with "-"
+  // monthGain is a fixed(4) decimal string (latest − prior breakdown net,
+  // computed in page.tsx) — negative if it starts with "-"
   const gainPositive = !monthGain.startsWith("-") && monthGain !== "0.0000";
 
   return (
