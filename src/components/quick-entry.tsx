@@ -46,6 +46,8 @@ interface QuickEntryProps {
   open?: boolean;
   /** Called when the drawer wants to open or close itself */
   onOpenChange?: (open: boolean) => void;
+  /** When provided, surfaces a "Record trade" entry point that hands off to the trade form */
+  onRecordTrade?: () => void;
 }
 
 const LS_LAST_ACCOUNT = "fin:last-account";
@@ -81,6 +83,7 @@ export function QuickEntry({
   accounts,
   open: controlledOpen,
   onOpenChange: controlledOnOpenChange,
+  onRecordTrade,
 }: QuickEntryProps) {
   const isControlled = controlledOpen !== undefined;
   const [internalOpen, setInternalOpen] = useState(false);
@@ -337,6 +340,20 @@ export function QuickEntry({
             onChange={(e) => setDescription(e.target.value)}
             maxLength={255}
           />
+        )}
+
+        {/* Hand-off to the trade form for investment entries */}
+        {onRecordTrade && (
+          <button
+            onClick={() => {
+              setOpen(false);
+              onRecordTrade();
+            }}
+            className="mt-4 text-sm font-medium"
+            style={{ color: "var(--coral)" }}
+          >
+            Record trade →
+          </button>
         )}
       </DrawerContent>
     </Drawer>

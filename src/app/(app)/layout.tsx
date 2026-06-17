@@ -54,6 +54,27 @@ export default async function AppLayout({
   // Inbox count for badge
   const count = await inboxCount(db, householdId);
 
+  // Investment accounts + instruments for the trade form
+  const investAccounts = await db
+    .select({ id: schema.accounts.id, name: schema.accounts.name })
+    .from(schema.accounts)
+    .where(
+      and(
+        eq(schema.accounts.householdId, householdId),
+        eq(schema.accounts.status, "active"),
+        eq(schema.accounts.kind, "investment"),
+      ),
+    );
+
+  const householdInstruments = await db
+    .select({
+      id: schema.instruments.id,
+      name: schema.instruments.name,
+      kind: schema.instruments.kind,
+    })
+    .from(schema.instruments)
+    .where(eq(schema.instruments.householdId, householdId));
+
   return (
     <AppShell
       inboxCount={count}
@@ -61,6 +82,10 @@ export default async function AppLayout({
         categories: leafCategories,
         recentIds,
         accounts: activeAccounts,
+      }}
+      tradeProps={{
+        accounts: investAccounts,
+        instruments: householdInstruments,
       }}
     >
       {children}

@@ -4,8 +4,10 @@ import type React from "react";
 import { useState } from "react";
 import { BottomNav } from "@/components/bottom-nav";
 import { QuickEntry } from "@/components/quick-entry";
+import { TradeForm } from "@/components/invest/trade-form";
 import { InstallCoachMark } from "@/components/install-coach-mark";
 import type { CategoryOption, AccountOption } from "@/components/quick-entry";
+import type { InvestAccountOption, InstrumentOption } from "@/components/invest/trade-form";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -15,10 +17,17 @@ interface AppShellProps {
     recentIds: string[];
     accounts: AccountOption[];
   };
+  tradeProps: {
+    accounts: InvestAccountOption[];
+    instruments: InstrumentOption[];
+  };
 }
 
-export function AppShell({ children, inboxCount, quickEntryProps }: AppShellProps) {
+export function AppShell({ children, inboxCount, quickEntryProps, tradeProps }: AppShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [tradeOpen, setTradeOpen] = useState(false);
+
+  const canRecordTrade = tradeProps.accounts.length > 0;
 
   return (
     <>
@@ -28,7 +37,11 @@ export function AppShell({ children, inboxCount, quickEntryProps }: AppShellProp
         {...quickEntryProps}
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
+        onRecordTrade={canRecordTrade ? () => setTradeOpen(true) : undefined}
       />
+      {canRecordTrade && (
+        <TradeForm {...tradeProps} open={tradeOpen} onOpenChange={setTradeOpen} />
+      )}
       <InstallCoachMark />
     </>
   );
