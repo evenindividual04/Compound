@@ -43,3 +43,6 @@ next-env.d.ts
 # superpowers
 .superpowers/
 .gstack/
+
+# fastembed local model cache (downloaded at runtime; never commit ~128MB weights)
+local_cache/
