@@ -15,7 +15,7 @@ import { computeBalanceAt } from "./derive";
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 export type Executor = Db | Tx;
 
-export type WriteSource = "user" | "system" | `rule:${string}` | `import:${string}`;
+export type WriteSource = "user" | "system" | `rule:${string}` | `import:${string}` | `categorizer:${string}`;
 
 export interface NewTransaction {
   accountId: string;
