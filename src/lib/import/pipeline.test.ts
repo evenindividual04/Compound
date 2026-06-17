@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { eq, isNull } from "drizzle-orm";
 import { tdb, resetDb, seedBasics } from "@/lib/ledger/test-db";
 import * as schema from "@/db/schema";
@@ -10,6 +10,8 @@ import { stageImport, commitImport, undoImport } from "./pipeline";
 import { tradeCashAmount } from "@/lib/invest/trade";
 import { computeHoldings } from "@/lib/invest/holdings";
 import { acceptEntry } from "@/lib/ledger/inbox";
+import { recordExample } from "@/lib/categorize/examples";
+import type { CategorizeDeps } from "@/lib/categorize/categorize";
 
 // HDFC mapping matching the fixture columns
 const hdfcMapping: ColumnMapping = {
@@ -253,6 +255,53 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("import pipeline", () => {
         expect(ir.entryId).toBeNull();
       }
     }
+  });
+
+  // ── Categorizer wiring (P3a) ─────────────────────────────────────────────────
+
+  it("commitImport: categorizer runs after rules and sets suggested (unlocked) category on matching entry", async () => {
+    // Seed a categorization example for "swiggy" → food category
+    // embedding dimension is 384; use a unit vector for the mock
+    const exampleEmbedding = Array.from({ length: 384 }, (_, i) => (i === 0 ? 1 : 0));
+    await recordExample(tdb, {
+      householdId: s.hh.id,
+      text: "swiggy",
+      categoryId: s.food.id,
+      embedding: exampleEmbedding,
+      source: "accept",
+    });
+
+    // Stage a single transaction whose normalized merchant matches the example
+    const { importId } = await stageImport(tdb, {
+      householdId: s.hh.id,
+      accountId: s.bank.id,
+      filename: "cat-test.csv",
+      rows: [{ date: "2026-06-01", amount: "-150.0000", description: "Swiggy order" }],
+    });
+
+    // Mock embed: returns the same vector as the example → T1 will resolve
+    const mockEmbed = vi.fn().mockResolvedValue(exampleEmbedding);
+    const mockGenerate = vi.fn().mockResolvedValue(null); // should not be called
+    const mockDeps: CategorizeDeps = { embed: mockEmbed, generate: mockGenerate, t1MinSim: 0.8 };
+
+    await commitImport(tdb, importId, s.hh.id, { categorizeDeps: mockDeps });
+
+    // Find the committed entry
+    const rows = await tdb
+      .select({ entryId: schema.importRows.entryId })
+      .from(schema.importRows)
+      .where(eq(schema.importRows.importId, importId));
+    expect(rows).toHaveLength(1);
+    const entryId = rows[0].entryId!;
+    expect(entryId).toBeTruthy();
+
+    // The transaction should have a suggested (unlocked) category
+    const [txn] = await tdb
+      .select()
+      .from(schema.transactions)
+      .where(eq(schema.transactions.entryId, entryId));
+    expect(txn.categoryId).toBe(s.food.id);
+    expect(txn.categoryLocked).toBe(false);
   });
 
   // ── Trade import path (P2) ───────────────────────────────────────────────────

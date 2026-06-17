@@ -21,6 +21,7 @@ import { afterWrite } from "@/lib/ledger/derive";
 import { createTransaction, softDelete } from "@/lib/ledger/write";
 import { createTrade } from "@/lib/invest/trade";
 import { validateContinuity } from "./validate";
+import type { CategorizeDeps } from "@/lib/categorize/categorize";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -252,6 +253,7 @@ export async function commitImport(
   db: Db,
   importId: string,
   householdId: string,
+  opts?: { categorizeDeps?: CategorizeDeps },
 ): Promise<CommitResult> {
   // Guard: idempotent
   const [imp] = await db
@@ -353,6 +355,15 @@ export async function commitImport(
   // Apply rules + propose transfers for transaction entries only (not trades)
   if (transactionEntryIds.length > 0) {
     await applyRulesTo(db, householdId, transactionEntryIds);
+    // T1/T2 categorization for entries rules left uncategorized. Never fails ingestion.
+    try {
+      const { categorizeEntries } = await import("@/lib/categorize/categorize");
+      const { defaultCategorizeDeps } = await import("@/lib/categorize/deps");
+      const deps = opts?.categorizeDeps ?? defaultCategorizeDeps();
+      await categorizeEntries(db, householdId, transactionEntryIds, deps);
+    } catch {
+      // categorization is best-effort; a failure leaves entries uncategorized for manual pick
+    }
     await proposeTransfers(db, householdId);
   }
 
