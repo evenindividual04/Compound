@@ -172,68 +172,6 @@ export async function spendTrend(
 }
 
 // ---------------------------------------------------------------------------
-// netWorthSeries
-// ---------------------------------------------------------------------------
-
-export interface NetWorthPoint {
-  date: string; // 'YYYY-MM-DD'
-  netWorth: string; // signed string
-}
-
-/**
- * Daily net worth for the last `days` calendar days.
- * Uses the balances table (LOCF already materialized). For days where a
- * balance row is missing, falls back to the latest balance row ≤ that day.
- * Sums only active, non-excluded accounts.
- */
-export async function netWorthSeries(
-  db: Db,
-  householdId: string,
-  days = 30,
-): Promise<NetWorthPoint[]> {
-  const res = await db.execute(sql`
-    WITH date_series AS (
-      SELECT
-        (CURRENT_DATE - gs.n)::date AS d
-      FROM generate_series(${days - 1}, 0, -1) AS gs(n)
-    ),
-    active_accounts AS (
-      SELECT id FROM accounts
-      WHERE household_id = ${householdId}::uuid
-        AND status = 'active'
-        AND excluded = false
-    ),
-    account_balances AS (
-      SELECT
-        ds.d,
-        aa.id AS account_id,
-        (
-          SELECT b.balance::numeric
-          FROM balances b
-          WHERE b.account_id = aa.id
-            AND b.date <= ds.d
-          ORDER BY b.date DESC
-          LIMIT 1
-        ) AS balance
-      FROM date_series ds
-      CROSS JOIN active_accounts aa
-    )
-    SELECT
-      ds.d::text AS date,
-      COALESCE(SUM(ab.balance), 0)::numeric(19,4)::text AS net_worth
-    FROM date_series ds
-    LEFT JOIN account_balances ab ON ab.d = ds.d
-    GROUP BY ds.d
-    ORDER BY ds.d
-  `);
-
-  return (res as unknown as { rows: { date: string; net_worth: string }[] }).rows.map((r) => ({
-    date: r.date,
-    netWorth: r.net_worth,
-  }));
-}
-
-// ---------------------------------------------------------------------------
 // needsAttention
 // ---------------------------------------------------------------------------
 

@@ -7,7 +7,6 @@ import {
   monthSpend,
   monthSpendByCategory,
   spendTrend,
-  netWorthSeries,
   needsAttention,
   recentTransactions,
 } from "./dashboard";
@@ -143,35 +142,6 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("dashboard queries", () => {
       for (const p of trend) {
         expect(parseFloat(p.spend)).toBe(0);
       }
-    });
-  });
-
-  // ── netWorthSeries ─────────────────────────────────────────────────────────
-
-  describe("netWorthSeries", () => {
-    it("returns `days` entries in ascending date order", async () => {
-      const series = await netWorthSeries(tdb, seeds.hh.id, 7);
-      expect(series).toHaveLength(7);
-      for (let i = 1; i < series.length; i++) {
-        expect(series[i].date >= series[i - 1].date).toBe(true);
-      }
-    });
-
-    it("reflects the balance table values for a seeded account", async () => {
-      const { bank } = seeds;
-      // bank has openingBalance=1000 in seedBasics; afterWrite will populate balances
-      const today = new Date();
-      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-      await afterWrite(tdb, {
-        accountId: bank.id,
-        householdId: seeds.hh.id,
-        date: todayStr,
-      });
-
-      const series = await netWorthSeries(tdb, seeds.hh.id, 1);
-      // Should be at least 1000 (from bank opening balance)
-      const point = series[0];
-      expect(parseFloat(point.netWorth)).toBeGreaterThanOrEqual(1000);
     });
   });
 
