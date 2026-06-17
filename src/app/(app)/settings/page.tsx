@@ -1,5 +1,6 @@
 import { requireHousehold } from "@/lib/current";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { BackfillButton } from "@/components/settings/backfill-button";
 
 export default async function SettingsPage() {
   const { email } = await requireHousehold();
@@ -17,6 +18,21 @@ export default async function SettingsPage() {
           <div className="flex items-center justify-between gap-4">
             <span className="text-sm text-ink">Theme</span>
             <ThemeToggle />
+          </div>
+        </div>
+      </section>
+
+      <section className="mt-6">
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-soft">
+          Categorization
+        </p>
+        <div className="rounded-2xl border border-hairline bg-surface p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <span className="text-sm text-ink">Auto-categorize</span>
+              <p className="text-xs text-soft">Run the AI categorizer on all uncategorized transactions.</p>
+            </div>
+            <BackfillButton />
           </div>
         </div>
       </section>
