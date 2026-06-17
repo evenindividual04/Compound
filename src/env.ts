@@ -11,6 +11,9 @@ export const env = createEnv({
     OWNER_EMAIL: z.email(),
     CRON_SECRET: z.string().min(16),
     INGEST_SECRET: z.string().min(16),
+    // AI Gateway model override. Defaults to "anthropic/claude-haiku-4-5".
+    // Auth uses AI_GATEWAY_API_KEY or Vercel OIDC — no key needed in local dev when calls are mocked.
+    CATEGORIZER_MODEL: z.string().optional(),
   },
   client: {},
   experimental__runtimeEnv: {},
