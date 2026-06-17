@@ -319,6 +319,7 @@ async function checkStaleSeries(db: Db): Promise<AnomalyRow[]> {
   const res = await db.execute(sql`
     SELECT
       b.account_id,
+      a.kind::text AS kind,
       b.date::text AS cached_date,
       b.balance::numeric AS cached_balance,
       (
@@ -358,6 +359,7 @@ async function checkStaleSeries(db: Db): Promise<AnomalyRow[]> {
     res as unknown as {
       rows: {
         account_id: string;
+        kind: string;
         cached_date: string;
         cached_balance: string;
         recomputed: string;
@@ -367,6 +369,7 @@ async function checkStaleSeries(db: Db): Promise<AnomalyRow[]> {
     kind: "stale_series" as const,
     detail: {
       accountId: r.account_id,
+      kind: r.kind,
       cachedDate: r.cached_date,
       cachedBalance: r.cached_balance,
       recomputed: add(r.recomputed, "0"), // normalize to 4dp in the decimal domain

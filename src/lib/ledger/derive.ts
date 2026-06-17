@@ -149,9 +149,9 @@ export async function netWorth(ex: Executor, householdId: string, date: string):
     WHERE a.household_id = ${householdId} AND a.status = 'active'
       AND NOT a.excluded AND a.kind = 'investment'
   `);
-  for (const row of (invest as unknown as { rows: { id: string }[] }).rows) {
-    total = add(total, await holdingValueAt(ex, row.id, date));
-  }
+  const investRows = (invest as unknown as { rows: { id: string }[] }).rows;
+  const values = await Promise.all(investRows.map((row) => holdingValueAt(ex, row.id, date)));
+  for (const v of values) total = add(total, v);
   return total;
 }
 

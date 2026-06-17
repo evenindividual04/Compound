@@ -93,7 +93,10 @@ export default async function InvestPage() {
   const rows: HoldingRow[] = await Promise.all(
     holdings.map(async (h) => {
       const meta = instrumentById.get(h.instrumentId);
-      const priceMeta = await latestPriceWithDate(h.instrumentId, today);
+      const [priceMeta, legs] = await Promise.all([
+        latestPriceWithDate(h.instrumentId, today),
+        tradeLegs(h.instrumentId, householdId),
+      ]);
       const currentPrice = priceMeta?.nav ?? null;
       const priceDate = priceMeta?.date ?? null;
 
@@ -109,7 +112,6 @@ export default async function InvestPage() {
 
       // XIRR cashflows: each buy is money out (−units×price), each sell is money in
       // (+units×price), plus a terminal mark-to-market inflow at today.
-      const legs = await tradeLegs(h.instrumentId, householdId);
       const cashflows: CashFlow[] = legs.map((leg) => {
         const gross = mul(leg.units, leg.price);
         return {

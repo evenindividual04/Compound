@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { sql } from "drizzle-orm";
+import { format, endOfMonth, subMonths, parseISO } from "date-fns";
 import { db } from "@/db";
 import { requireHousehold } from "@/lib/current";
 import { todayIST } from "@/lib/dates";
@@ -129,6 +130,9 @@ export default async function DashboardPage() {
 
     // Latest net worth scalar — investment-aware (non-investment cash balances +
     // investment market value via holdingValueAt). Correct for holdings.
+    // NOTE: netWorthNow reads live entries while nwBreakdown (above) reads the
+    // balances cache; they can transiently diverge by an uncommitted delta if the
+    // cache is momentarily behind. afterWrite keeps the cache current after writes.
     netWorth(db, householdId, today),
 
     // Income for savings ring (inline — not in src/lib)
@@ -214,12 +218,11 @@ export default async function DashboardPage() {
   }
 
   // ── Net worth month gain ─────────────────────────────────────────────────────
-  // Latest net minus ~one-month-ago net, from the (already-boundary) breakdown
-  // series. Derived display stat — the numbers were converted at the chart
-  // boundary; formatting the delta as a string here is display-only.
-  const nwLatest = nwBreakdown[nwBreakdown.length - 1]?.net ?? 0;
-  const nwPrior = nwBreakdown[nwBreakdown.length - 2]?.net ?? nwLatest;
-  const monthGain = (nwLatest - nwPrior).toFixed(4);
+  // String-domain delta: netWorth(today) − netWorth(end of previous month), both
+  // via the investment-aware scalar netWorth(). netWorthNow is reused as "now".
+  const prevMonthEnd = format(endOfMonth(subMonths(parseISO(today), 1)), "yyyy-MM-dd");
+  const nwPrior = await netWorth(db, householdId, prevMonthEnd);
+  const monthGain = sub(netWorthNow, nwPrior);
 
   // ── Projection (illustrative — DESIGN.md §14, math not locked) ───────────────
   // Number() safe — purely illustrative display statistic
