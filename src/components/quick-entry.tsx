@@ -345,6 +345,7 @@ export function QuickEntry({
         {/* Hand-off to the trade form for investment entries */}
         {onRecordTrade && (
           <button
+            type="button"
             onClick={() => {
               setOpen(false);
               onRecordTrade();

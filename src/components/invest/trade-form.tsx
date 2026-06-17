@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { formatINR, mul } from "@/lib/money";
+import { formatINR, mul, cmp } from "@/lib/money";
 import { todayIST } from "@/lib/dates";
 import { createTradeAction } from "@/app/actions/trades";
 import {
@@ -44,8 +44,16 @@ interface TradeFormProps {
 const ADD_NEW = "__add_new__";
 const DECIMAL = /^\d*(\.\d*)?$/;
 
+/** Coerce a permissive input value (".5", "5.", "") to the server's strict form ("0.5", "5", ""). */
+function normalizeDecimal(v: string): string {
+  if (v === "" || v === ".") return "";
+  let n = v.startsWith(".") ? `0${v}` : v;
+  if (n.endsWith(".")) n = n.slice(0, -1);
+  return n;
+}
+
 const labelClass =
-  "text-[0.8125rem] font-medium uppercase tracking-wide text-soft-ink dark:text-dim";
+  "text-[0.8125rem] font-medium uppercase tracking-wide text-soft";
 
 export function TradeForm({ accounts, instruments, open, onOpenChange }: TradeFormProps) {
   const [accountId, setAccountId] = useState("");
@@ -82,9 +90,8 @@ export function TradeForm({ accounts, instruments, open, onOpenChange }: TradeFo
 
   // Live cash value: units × price, computed in the string domain (never Number()).
   const cashPreview = useMemo(() => {
-    if (!units || !price || !DECIMAL.test(units) || !DECIMAL.test(price)) return null;
-    const u = units.endsWith(".") ? units.slice(0, -1) : units;
-    const p = price.endsWith(".") ? price.slice(0, -1) : price;
+    const u = normalizeDecimal(units);
+    const p = normalizeDecimal(price);
     if (!u || !p) return null;
     return mul(u, p);
   }, [units, price]);
@@ -105,16 +112,20 @@ export function TradeForm({ accounts, instruments, open, onOpenChange }: TradeFo
       toast.error("Pick an instrument");
       return;
     }
-    if (!units || Number.parseFloat(units) <= 0) {
+    // Normalize ".5" → "0.5" and strip a trailing dot so the value matches the
+    // server's strict PositiveDecimal regex (form input is more permissive).
+    const normUnits = normalizeDecimal(units);
+    const normPrice = normalizeDecimal(price);
+    if (!units || cmp(normUnits, "0") <= 0) {
       toast.error("Enter units");
       return;
     }
-    if (!price || Number.parseFloat(price) <= 0) {
+    if (!price || cmp(normPrice, "0") <= 0) {
       toast.error("Enter a price");
       return;
     }
 
-    const base = { accountId, date, side, units, price };
+    const base = { accountId, date, side, units: normUnits, price: normPrice };
     let payload: Record<string, unknown>;
 
     if (addingNew) {
@@ -212,10 +223,9 @@ export function TradeForm({ accounts, instruments, open, onOpenChange }: TradeFo
                     onClick={() => setNewKind(k)}
                     className={`flex-1 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
                       newKind === k
-                        ? "border-coral text-coral"
-                        : "border-hairline text-soft-ink dark:text-dim"
+                        ? "border-ink bg-ink text-surface"
+                        : "border-hairline text-soft"
                     }`}
-                    style={newKind === k ? { borderColor: "var(--coral)", color: "var(--coral)" } : undefined}
                   >
                     {k === "mf" ? "Mutual fund" : "Equity"}
                   </button>
@@ -253,10 +263,9 @@ export function TradeForm({ accounts, instruments, open, onOpenChange }: TradeFo
                   onClick={() => setSide(s)}
                   className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium capitalize transition-colors ${
                     side === s
-                      ? "border-coral text-coral"
-                      : "border-hairline text-soft-ink dark:text-dim"
+                      ? "border-ink bg-ink text-surface"
+                      : "border-hairline text-soft"
                   }`}
-                  style={side === s ? { borderColor: "var(--coral)", color: "var(--coral)" } : undefined}
                   aria-pressed={side === s}
                 >
                   {s}
