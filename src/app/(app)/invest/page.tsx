@@ -3,9 +3,8 @@ import { db } from "@/db";
 import { requireHousehold } from "@/lib/current";
 import { todayIST } from "@/lib/dates";
 import { computeHoldings } from "@/lib/invest/holdings";
-import { latestPriceAt } from "@/lib/invest/price";
 import { xirr, type CashFlow } from "@/lib/invest/xirr";
-import { mul, sub, neg } from "@/lib/money";
+import { mul, sub, neg, cmp } from "@/lib/money";
 import { HoldingsTable, type HoldingRow } from "@/components/invest/holdings-table";
 
 const STALE_DAYS = 4;
@@ -70,7 +69,7 @@ export default async function InvestPage() {
   const today = todayIST();
 
   const holdings = (await computeHoldings(db, householdId, today)).filter(
-    (h) => Number(h.units) > 0,
+    (h) => cmp(h.units, "0") > 0,
   );
 
   // Load instrument metadata for the held instruments

@@ -139,7 +139,7 @@ function HoldingRowItem({ row }: { row: HoldingRow }) {
             ) : null}
             {row.stale && (
               <Badge variant="secondary" className="shrink-0 text-[10px]">
-                stale price
+                {row.currentPrice ? "stale price" : "no price"}
               </Badge>
             )}
           </div>
