@@ -15,6 +15,9 @@ import { embed as realEmbed, type Embedder } from "@/lib/categorize/embed";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
+/** Which tier suggested the category: rules engine, learned (T1 k-NN), AI (T2 LLM), or none. */
+export type SuggestionSource = "rule" | "learned" | "AI" | null;
+
 export interface PendingEntry {
   entryId: string;
   date: string;
@@ -29,6 +32,8 @@ export interface PendingEntry {
   merchant: string | null;
   isAdjustment: boolean;
   suggestedCategoryId: string | null;
+  /** Source tier that produced the current category suggestion (null when no suggestion). */
+  suggestionSource: SuggestionSource;
 }
 
 export interface TransferLegSummary {
@@ -51,6 +56,23 @@ export interface InboxItems {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
+
+/**
+ * Map an entry_events.source string (from the most recent categoryId event) to a
+ * human-readable suggestion tier label.
+ *
+ *   rule:<id>       → "rule"
+ *   categorizer:t1  → "learned"
+ *   categorizer:t2  → "AI"
+ *   anything else   → null
+ */
+export function deriveSuggestionSource(eventSource: string | null): SuggestionSource {
+  if (!eventSource) return null;
+  if (eventSource.startsWith("rule:")) return "rule";
+  if (eventSource === "categorizer:t1") return "learned";
+  if (eventSource === "categorizer:t2") return "AI";
+  return null;
+}
 
 /** Log a status change event. */
 async function logStatusEvent(
@@ -158,7 +180,14 @@ export async function inboxItems(db: Db, householdId: string): Promise<InboxItem
       c.name        AS category_name,
       t.category_locked AS category_locked,
       t.merchant    AS merchant,
-      t.is_adjustment AS is_adjustment
+      t.is_adjustment AS is_adjustment,
+      (
+        SELECT ev.source
+        FROM entry_events ev
+        WHERE ev.entry_id = e.id AND ev.field = 'categoryId'
+        ORDER BY ev.at DESC
+        LIMIT 1
+      ) AS latest_category_source
     FROM entries e
     JOIN accounts a ON a.id = e.account_id
     JOIN transactions t ON t.entry_id = e.id
@@ -183,6 +212,7 @@ export async function inboxItems(db: Db, householdId: string): Promise<InboxItem
     category_locked: boolean;
     merchant: string | null;
     is_adjustment: boolean;
+    latest_category_source: string | null;
   };
 
   const rows = (rawEntries as unknown as { rows: RawEntry[] }).rows;
@@ -199,6 +229,14 @@ export async function inboxItems(db: Db, householdId: string): Promise<InboxItem
           r.merchant,
         );
       }
+      // suggestionSource: meaningful when the category is not user-locked (i.e., it came from a
+      // categorizer or rule tier and could still be corrected). Derive from the most recent
+      // categoryId event. For rule-engine suggestions (category_id=null, suggestedCategoryId set),
+      // the source is also captured if annotate was called. When category_id IS set but unlocked,
+      // we still surface the source so the UI can show "learned"/"AI"/"rule" next to the category.
+      const suggestionSource = !r.category_locked
+        ? deriveSuggestionSource(r.latest_category_source)
+        : null;
       return {
         entryId: r.entry_id,
         date: r.date,
@@ -213,6 +251,7 @@ export async function inboxItems(db: Db, householdId: string): Promise<InboxItem
         merchant: r.merchant,
         isAdjustment: r.is_adjustment,
         suggestedCategoryId,
+        suggestionSource,
       };
     }),
   );

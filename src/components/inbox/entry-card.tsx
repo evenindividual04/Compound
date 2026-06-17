@@ -129,6 +129,11 @@ export function EntryCard({ entry, categories, selected, selectMode, onToggleSel
                 {isSuggested ? `suggested: ${effectiveCategoryName}` : effectiveCategoryName}
               </Badge>
             )}
+            {entry.suggestionSource && (
+              <span className="text-[10px] text-soft">
+                {entry.suggestionSource}
+              </span>
+            )}
             {needsCategory && (
               <Badge variant="outline" className="border-dashed text-[10px] text-soft">
                 needs category
