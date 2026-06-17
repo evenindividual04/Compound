@@ -299,6 +299,13 @@ export default async function DashboardPage() {
         projectionTarget={projectionTarget}
       />
 
+      {/* Investments deep-link */}
+      <div className="flex justify-end px-4">
+        <Link href="/invest" className="text-[11px] font-semibold text-coral">
+          Investments →
+        </Link>
+      </div>
+
       {/* Add-a-card tile */}
       <AddCardTile />
     </div>
