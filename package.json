@@ -9,7 +9,9 @@
     "lint": "eslint",
     "test": "dotenv -e .env.local -- vitest run",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "dotenv -e .env.local -- drizzle-kit migrate"
+    "db:migrate": "dotenv -e .env.local -- drizzle-kit migrate",
+    "test:e2e": "playwright test",
+    "test:e2e:setup": "DATABASE_URL=postgresql://compound@127.0.0.1:54329/compound_e2e npx drizzle-kit migrate"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
@@ -41,6 +43,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/papaparse": "^5.5.2",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useTransition } from "react";
+import { useState, useCallback, useTransition, useEffect } from "react";
 import { Upload } from "lucide-react";
 import { ImportWizard } from "./import-wizard";
 import { ImportHistory } from "./import-history";
@@ -27,10 +27,11 @@ export function ImportPageClient({ accounts }: { accounts: Account[] }) {
     });
   }, []);
 
-  // Load history on first render
-  if (!historyLoaded && !isPending) {
-    refreshHistory();
-  }
+  // Load history on mount (must be in useEffect — cannot call startTransition during render)
+  useEffect(() => {
+    if (!historyLoaded) refreshHistory();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handleWizardDone() {
     // Reset wizard and refresh history
