@@ -10,6 +10,7 @@ import { auth } from "@/lib/auth";
 import { isAllowed } from "@/lib/allowlist";
 import { db } from "@/db";
 import { users } from "@/db/schema";
+import { e2eBypassEnabled, e2eOwnerSession } from "@/lib/e2e-session";
 
 export interface Current {
   userId: string;
@@ -18,7 +19,9 @@ export interface Current {
 }
 
 export async function requireHousehold(): Promise<Current> {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = e2eBypassEnabled()
+    ? e2eOwnerSession()
+    : await auth.api.getSession({ headers: await headers() });
   if (!session || !isAllowed(session.user.email)) throw new Error("unauthorized");
   const [mapping] = await db.select().from(users).where(eq(users.id, session.user.id));
   if (!mapping) throw new Error("no household mapping for user");

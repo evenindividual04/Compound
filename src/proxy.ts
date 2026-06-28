@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { isAllowed } from "@/lib/allowlist";
+import { e2eBypassEnabled, e2eOwnerSession } from "@/lib/e2e-session";
 
 const PUBLIC_PATHS = [
   "/login",
@@ -42,7 +43,9 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   }
 
   // Fetch the session from better-auth by passing the incoming request.
-  const session = await auth.api.getSession({ headers: request.headers });
+  const session = e2eBypassEnabled()
+    ? e2eOwnerSession()
+    : await auth.api.getSession({ headers: request.headers });
 
   if (!session) {
     const loginUrl = new URL("/login", request.url);
