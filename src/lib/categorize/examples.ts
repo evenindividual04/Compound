@@ -51,6 +51,10 @@ export async function recordExampleForEntry(
 export async function nearestExamples(
   ex: Executor, householdId: string, embedding: number[], k: number,
 ): Promise<{ categoryId: string; sim: number }[]> {
+  // Guard the sql.raw vector literal: only finite numbers may be inlined.
+  // embedding is always a locally-produced number[]; this asserts that invariant
+  // so the raw interpolation can never become an injection surface.
+  if (!embedding.every(Number.isFinite)) throw new Error("embedding must be all finite numbers");
   const lit = sql.raw(`'[${embedding.join(",")}]'::vector`);
   const res = await ex.execute(sql`
     SELECT category_id, 1 - (embedding <=> ${lit}) AS sim
