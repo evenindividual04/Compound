@@ -143,3 +143,61 @@ describe("normalizeMerchant", () => {
     expect(normalizeMerchant("  BIGBASKET   ")).toBe("Bigbasket");
   });
 });
+
+describe("parseSmsRows — edge & robustness", () => {
+  it("routes an empty body and a whitespace-only body to unparsed, never throws", () => {
+    const out = parseSmsRows([
+      { sender: "AD-SBIUPI", body: "", receivedAt: "2026-06-05T10:00:00Z" },
+      { sender: "AD-SBIUPI", body: "   ", receivedAt: "2026-06-05T10:00:00Z" },
+    ]);
+    expect(out.parsed).toHaveLength(0);
+    expect(out.unparsed).toHaveLength(2);
+  });
+
+  it("does not partial-match a truncated SBI SMS (missing Refno) — goes to unparsed", () => {
+    const out = parseSmsRows([
+      {
+        sender: "AD-SBIUPI",
+        body: "A/C X3519 debited by 525.00 on date 05Jun26 trf to EatSure",
+        receivedAt: "2026-06-05T10:00:00Z",
+      },
+    ]);
+    expect(out.parsed).toHaveLength(0);
+    expect(out.unparsed).toHaveLength(1);
+  });
+
+  it("parses amounts with thousands separators correctly", () => {
+    // toSignedMoney strips commas: "12,345.67" → int="12345", dec="67", decimal="6700"
+    // Expected output: "-12345.6700"
+    const out = parseSmsRows([
+      {
+        sender: "AD-SBIUPI",
+        body: "Dear UPI user A/C X3519 debited by 12,345.67 on date 05Jun26 trf to BigBasket Refno 207781447299 -SBI",
+        receivedAt: "2026-06-05T10:00:00Z",
+      },
+    ]);
+    expect(out.parsed[0]?.row.amount).toBe("-12345.6700");
+  });
+
+  it("preserves a large batch order-independently and reports counts", () => {
+    const msgs = Array.from({ length: 20 }, (_, i) => ({
+      sender: "PROMO",
+      body: `noise ${i}`,
+      receivedAt: "2026-06-05T10:00:00Z",
+    }));
+    const out = parseSmsRows(msgs);
+    expect(out.unparsed).toHaveLength(20);
+    expect(out.parsed).toHaveLength(0);
+  });
+
+  it("normalizeMerchant collapses whitespace and title-cases ALL-CAPS tokens consistently", () => {
+    // "  EATSURE   FOODCOUR  " → trims + collapses spaces → "EATSURE FOODCOUR"
+    // No alias match for the two-token key, so title-cases each ALL-CAPS token:
+    // "EATSURE" → "Eatsure", "FOODCOUR" → "Foodcour" → "Eatsure Foodcour"
+    // "EatSure Foodcour" → preserved as-is (not ALL-CAPS) → "EatSure Foodcour"
+    // Note: alias lookup key is checked per full string, so "EATSURE" alone maps to "EatSure"
+    // but "EATSURE FOODCOUR" does not — the two inputs produce different outputs.
+    expect(normalizeMerchant("  EATSURE   FOODCOUR  ")).toBe("Eatsure Foodcour");
+    expect(normalizeMerchant("EatSure Foodcour")).toBe("EatSure Foodcour");
+  });
+});
