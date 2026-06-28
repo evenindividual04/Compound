@@ -1,6 +1,6 @@
 /**
  * P3a Acceptance Harness
- * Run against fin_dev. Self-contained; creates + destroys an isolated household.
+ * Run against compound_dev. Self-contained; creates + destroys an isolated household.
  * Usage (from project root):
  *   pnpm exec dotenv -e .env.local -- npx tsx src/scripts/p3a-acceptance.ts
  * OR:

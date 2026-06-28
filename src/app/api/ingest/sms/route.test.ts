@@ -4,7 +4,7 @@ import * as schema from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 // Replace the production db singleton with the test db so the route writes
-// to fin_test instead of fin_dev. Must be hoisted before the route import.
+// to compound_test instead of compound_dev. Must be hoisted before the route import.
 vi.mock("@/db", () => ({ db: tdb }));
 
 import { POST } from "./route";

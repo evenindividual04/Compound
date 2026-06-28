@@ -52,10 +52,10 @@ Date: 2026-06-18 · Branch `build/phase-3a-categorization` · Spec `docs/superpo
 
 ## Headless end-to-end acceptance script
 
-The acceptance harness lives at `src/scripts/p3a-acceptance.ts`. Run it against `fin_dev`:
+The acceptance harness lives at `src/scripts/p3a-acceptance.ts`. Run it against `compound_dev`:
 
 ```bash
-DATABASE_URL=postgresql://fin@127.0.0.1:54329/fin_dev \
+DATABASE_URL=postgresql://compound@127.0.0.1:54329/compound_dev \
   npx tsx --tsconfig tsconfig.json src/scripts/p3a-acceptance.ts
 ```
 
@@ -68,7 +68,7 @@ DATABASE_URL=postgresql://fin@127.0.0.1:54329/fin_dev \
 5. Asserts `suggestionSource` is populated on at least one unlocked entry (confirms the inbox query correctly surfaces the tier label).
 6. Accepts entry1 with `food` category and asserts a `categorization_examples` row is recorded.
 7. Creates a posted uncategorized entry (rapido) and runs `backfillCategories` twice — asserts `scanned > 0` on the first run and `scanned = 0` on the second (idempotence).
-8. Tears down: deletes all `categorization_examples`, entries, balances, rollups, categories, accounts, and the household. `fin_dev` is left clean.
+8. Tears down: deletes all `categorization_examples`, entries, balances, rollups, categories, accounts, and the household. `compound_dev` is left clean.
 
 ### Expected output (approximate)
 

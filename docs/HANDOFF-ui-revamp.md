@@ -73,11 +73,11 @@ public/manifest.webmanifest + icons   currently a placeholder ₹ glyph — need
 
 ## Environment quirks (will bite you if ignored)
 
-- Local Postgres 18: `~/.fin-pgdata`, port **54329**, user `fin`, trust auth. Start if down:
+- Local Postgres 18: `~/.fin-pgdata`, port **54329**, user `compound`, trust auth. Start if down:
   `/opt/homebrew/opt/postgresql@18/bin/pg_ctl -D ~/.fin-pgdata -o "-p 54329 -c listen_addresses=127.0.0.1" -l ~/.fin-pgdata/log start`
   (System Postgres on 5432 wants a password — don't touch it.)
 - Tests: `pnpm test` (loads `.env.local`; DB suites need `TEST_DATABASE_URL`; files run
-  serially — don't parallelize, shared test DB). Extra DBs fin_test2–5 exist for parallel agents.
+  serially — don't parallelize, shared test DB). Extra DBs compound_test2–5 exist for parallel agents.
 - Port 3000 must be free for OAuth (stale pfolio dev servers have squatted it before —
   `lsof -nP -iTCP:3000 -sTCP:LISTEN` and kill).
 - Shell cwd drifts between tool calls in this harness — always `cd /Users/anmolsen/Developer/fin &&` or use absolute paths.

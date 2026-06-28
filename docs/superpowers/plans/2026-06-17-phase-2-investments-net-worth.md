@@ -12,7 +12,7 @@
 - Money is **string** end-to-end; arithmetic only via `src/lib/money.ts`. The single allowed `Number()` boundaries are (a) chart display props converted at the RSC boundary, and (b) inside the XIRR NPV solver (analytics, not ledger truth) — both documented at the call site.
 - All writes go through a validated write path that appends to `entry_events`. Derived state is pure recomputation, never incremental.
 - Every `pnpm test` must be green before each commit. Conventional commit messages, no attribution footer.
-- Local Postgres: port **54329**, db `fin_dev` / `fin_test`. Start if down: `/opt/homebrew/opt/postgresql@18/bin/pg_ctl -D ~/.fin-pgdata -o "-p 54329 -c listen_addresses=127.0.0.1" -l ~/.fin-pgdata/log start`. Tests: `pnpm test` (loads `.env.local`, needs `TEST_DATABASE_URL`; suites run serially, shared test DB — never parallelize).
+- Local Postgres: port **54329**, db `compound_dev` / `compound_test`. Start if down: `/opt/homebrew/opt/postgresql@18/bin/pg_ctl -D ~/.fin-pgdata -o "-p 54329 -c listen_addresses=127.0.0.1" -l ~/.fin-pgdata/log start`. Tests: `pnpm test` (loads `.env.local`, needs `TEST_DATABASE_URL`; suites run serially, shared test DB — never parallelize).
 - Migrations: edit `src/db/schema/*`, then `pnpm db:generate` (writes `drizzle/NNNN_*.sql`), then `pnpm db:migrate`. For the test DB, apply the same migration against `TEST_DATABASE_URL`.
 - Always run from the repo root or use absolute paths (shell cwd drifts in this harness).
 

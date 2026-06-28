@@ -46,3 +46,7 @@ next-env.d.ts
 
 # fastembed local model cache (downloaded at runtime; never commit ~128MB weights)
 local_cache/
+
+# playwright
+test-results/
+playwright-report/

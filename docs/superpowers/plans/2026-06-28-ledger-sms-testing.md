@@ -6,13 +6,13 @@
 
 **Architecture:** The codebase already has deep lib-layer unit coverage (257 tests). This plan adds the missing layers: (1) an HTTP integration test of the SMS ingest route against the real test DB; (2) more parser edge/fixture coverage; (3) a Playwright browser E2E harness gated by a production-disabled auth-bypass seam; (4) pytest for `bridge/bridge.py`. No production behavior changes except the auth seam, which is double-gated (E2E flag AND non-production) so it is dead code in any real build.
 
-**Tech Stack:** TypeScript · Next.js 16 (App Router) · Drizzle/Postgres (port 54329, `fin_dev`/`fin_test`; new `fin_e2e` for browser tests) · Vitest (`pnpm test`, serial, `fileParallelism:false`) · Playwright (new) · Python 3 + pytest (new, in `bridge/`) · better-auth (Google OAuth, owner allowlist).
+**Tech Stack:** TypeScript · Next.js 16 (App Router) · Drizzle/Postgres (port 54329, `compound_dev`/`compound_test`; new `compound_e2e` for browser tests) · Vitest (`pnpm test`, serial, `fileParallelism:false`) · Playwright (new) · Python 3 + pytest (new, in `bridge/`) · better-auth (Google OAuth, owner allowlist).
 
 ## Global Constraints
 
 - Money is NUMERIC **string** end-to-end; never `Number()` a money value (charts/analytics boundaries excepted, not relevant here). Use `src/lib/money.ts`.
 - The auth-bypass seam MUST be inert in production: enabled only when `process.env.NODE_ENV !== "production"` **and** `process.env.E2E_AUTH_BYPASS === "1"`. Never add it to the typed `src/env.ts` schema; read `process.env` directly inside the seam.
-- DB-backed Vitest suites guard with `describe.skipIf(!process.env.TEST_DATABASE_URL)`. Run only ONE `pnpm test` process at a time (shared `fin_test` → deadlocks).
+- DB-backed Vitest suites guard with `describe.skipIf(!process.env.TEST_DATABASE_URL)`. Run only ONE `pnpm test` process at a time (shared `compound_test` → deadlocks).
 - Postgres start if down: `/opt/homebrew/opt/postgresql@18/bin/pg_ctl -D ~/.fin-pgdata -o "-p 54329 -c listen_addresses=127.0.0.1" -l ~/.fin-pgdata/log start`.
 - Conventional commits, NO attribution footer. Always `cd /Users/anmolsen/Developer/fin` or use absolute paths.
 - SMS ingest route is already public (bearer-guarded, in `proxy.ts` `PUBLIC_PATHS` under `/api/ingest/`); it does NOT use the auth seam. Only browser E2E uses the seam.
@@ -28,8 +28,8 @@ src/proxy.ts                           MOD  use the seam before getSession
 src/lib/current.ts                     MOD  use the seam before getSession (requireHousehold)
 src/app/api/ingest/sms/route.test.ts   NEW  DB-backed HTTP integration test of the ingest route
 src/lib/import/sms.test.ts             MOD  expanded parser coverage (append cases)
-playwright.config.ts                   NEW  webServer launches app on fin_e2e with the bypass flag
-e2e/global-setup.ts                    NEW  migrate + seed owner/household/account into fin_e2e
+playwright.config.ts                   NEW  webServer launches app on compound_e2e with the bypass flag
+e2e/global-setup.ts                    NEW  migrate + seed owner/household/account into compound_e2e
 e2e/helpers.ts                         NEW  postSms() helper + DB reset between specs
 e2e/sms-inbox.spec.ts                  NEW  SMS → inbox → accept → ledger
 e2e/quick-add.spec.ts                  NEW  quick-add ≤3 taps → ledger
@@ -162,7 +162,7 @@ git commit -m "feat: production-disabled E2E auth bypass seam"
 
 ### Task 2: SMS ingest route integration test
 
-The biggest current gap: `POST /api/ingest/sms` has no automated test. Test the full HTTP contract against the real `fin_test` DB by importing the route's `POST` handler directly and passing a `Request` (no network/server needed). Covers: bearer auth, parse → resolve account via `accounts.metadata.smsKey` → stage → commit (entries land `pending`), and the never-drop anomaly paths.
+The biggest current gap: `POST /api/ingest/sms` has no automated test. Test the full HTTP contract against the real `compound_test` DB by importing the route's `POST` handler directly and passing a `Request` (no network/server needed). Covers: bearer auth, parse → resolve account via `accounts.metadata.smsKey` → stage → commit (entries land `pending`), and the never-drop anomaly paths.
 
 **Files:**
 - Create: `src/app/api/ingest/sms/route.test.ts`
@@ -346,7 +346,7 @@ git commit -m "test: expand SMS parser edge/robustness coverage"
 
 ### Task 4: Playwright harness + browser E2E flows
 
-A real-browser harness that boots the app against a dedicated `fin_e2e` DB with the auth seam on, seeds the owner, and drives the three critical flows. Read `src/app/(app)/inbox/page.tsx`, `src/components/inbox/entry-card.tsx`, the quick-entry component, and `src/app/(app)/import/` to derive real selectors (prefer role/text selectors; add `data-testid` only where a flow is otherwise unselectable).
+A real-browser harness that boots the app against a dedicated `compound_e2e` DB with the auth seam on, seeds the owner, and drives the three critical flows. Read `src/app/(app)/inbox/page.tsx`, `src/components/inbox/entry-card.tsx`, the quick-entry component, and `src/app/(app)/import/` to derive real selectors (prefer role/text selectors; add `data-testid` only where a flow is otherwise unselectable).
 
 **Files:**
 - Create: `playwright.config.ts`, `e2e/global-setup.ts`, `e2e/helpers.ts`, `e2e/sms-inbox.spec.ts`, `e2e/quick-add.spec.ts`, `e2e/import-wizard.spec.ts`
@@ -361,23 +361,23 @@ A real-browser harness that boots the app against a dedicated `fin_e2e` DB with 
 pnpm add -D @playwright/test
 pnpm exec playwright install chromium
 ```
-Create the `fin_e2e` database and migrate it:
+Create the `compound_e2e` database and migrate it:
 ```bash
-psql "postgresql://fin@127.0.0.1:54329/postgres" -c "CREATE DATABASE fin_e2e OWNER fin;" 2>/dev/null || true
-DATABASE_URL="postgresql://fin@127.0.0.1:54329/fin_e2e" npx drizzle-kit migrate
+psql "postgresql://compound@127.0.0.1:54329/postgres" -c "CREATE DATABASE compound_e2e OWNER compound;" 2>/dev/null || true
+DATABASE_URL="postgresql://compound@127.0.0.1:54329/compound_e2e" npx drizzle-kit migrate
 ```
 Add to `package.json` scripts:
 ```json
 "test:e2e": "playwright test",
-"test:e2e:setup": "DATABASE_URL=postgresql://fin@127.0.0.1:54329/fin_e2e npx drizzle-kit migrate"
+"test:e2e:setup": "DATABASE_URL=postgresql://compound@127.0.0.1:54329/compound_e2e npx drizzle-kit migrate"
 ```
 
-- [ ] **Step 2: `playwright.config.ts`** — boots `next dev` against `fin_e2e` with the bypass flag:
+- [ ] **Step 2: `playwright.config.ts`** — boots `next dev` against `compound_e2e` with the bypass flag:
 
 ```typescript
 import { defineConfig } from "@playwright/test";
 
-const E2E_DB = "postgresql://fin@127.0.0.1:54329/fin_e2e";
+const E2E_DB = "postgresql://compound@127.0.0.1:54329/compound_e2e";
 export default defineConfig({
   testDir: "./e2e",
   globalSetup: "./e2e/global-setup.ts",
@@ -401,11 +401,11 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 3: `e2e/global-setup.ts`** — seed owner auth user + household mapping + one SBI-keyed bank account into `fin_e2e` (idempotent). Connect with `pg` directly (no app imports needed):
+- [ ] **Step 3: `e2e/global-setup.ts`** — seed owner auth user + household mapping + one SBI-keyed bank account into `compound_e2e` (idempotent). Connect with `pg` directly (no app imports needed):
 
 ```typescript
 import { Pool } from "pg";
-const E2E_DB = "postgresql://fin@127.0.0.1:54329/fin_e2e";
+const E2E_DB = "postgresql://compound@127.0.0.1:54329/compound_e2e";
 const OWNER_ID = "e2e-owner";
 const OWNER_EMAIL = process.env.OWNER_EMAIL ?? "owner@example.com";
 
@@ -533,4 +533,4 @@ git commit -m "test: pytest suite for the Mac SMS bridge (chat.db read, dedup, d
 - **Auth-seam safety:** double-gated (`NODE_ENV!=="production"` AND `E2E_AUTH_BYPASS==="1"`), unit-tested for production-inertness (Task 1 Step 1), never added to typed env, off by default so the existing 257 tests and any prod build are unaffected.
 - **Placeholder scan:** test bodies are concrete; the few "confirm against the real file" notes (auth_user columns, exact `formatINR` strings, bridge.py function names, inbox selectors) are reconciliation instructions for facts that live in unchanged code the implementer must read — not deferred logic. Each names the exact file to read and the rule (adjust the test to the real contract; report a real bug rather than weaken an assertion).
 - **Type/name consistency:** `e2eBypassEnabled`/`e2eOwnerSession`/`E2E_OWNER_ID` are used identically in Tasks 1 and 4; `postSms`/`SBI_BODY` defined in `e2e/helpers.ts` (Task 4 Step 4) and consumed by the specs; the ingest response fields (`committed`/`duplicates`/`unparsed`/`unmapped`) are consistent between Tasks 2 and 4.
-- **DB isolation:** route/parser tests use the existing `fin_test` (serial, `skipIf`-guarded); browser E2E uses a dedicated `fin_e2e` so a long-running dev server can't collide with the Vitest suite.
+- **DB isolation:** route/parser tests use the existing `compound_test` (serial, `skipIf`-guarded); browser E2E uses a dedicated `compound_e2e` so a long-running dev server can't collide with the Vitest suite.

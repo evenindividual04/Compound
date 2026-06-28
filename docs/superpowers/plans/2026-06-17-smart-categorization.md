@@ -15,7 +15,7 @@
 - **PII allowlist for the LLM:** send redacted merchant text + amount bucket + category list ONLY. Never send account numbers, full amounts, or personal names. Redaction **fails closed** (abstain if it can't safely strip).
 - The categorizer **only suggests** (`categoryLocked=false`); it never posts and never overwrites a locked category. Closed category list — the LLM picks from it or returns `UNSURE`.
 - Categorization failure must never fail ingestion (wrap in try/catch; on error the entry stays uncategorized).
-- Every `pnpm test` green before each commit. Conventional commits, no attribution footer. Local Postgres on port 54329 (`fin_dev`/`fin_test`); tests serial (`fileParallelism:false`) — never run two `pnpm test` at once. Migrations: edit schema → `pnpm db:generate` → `pnpm db:migrate` (dev) and `DATABASE_URL="$(npx dotenv -e .env.local -p TEST_DATABASE_URL)" npx drizzle-kit migrate` (test).
+- Every `pnpm test` green before each commit. Conventional commits, no attribution footer. Local Postgres on port 54329 (`compound_dev`/`compound_test`); tests serial (`fileParallelism:false`) — never run two `pnpm test` at once. Migrations: edit schema → `pnpm db:generate` → `pnpm db:migrate` (dev) and `DATABASE_URL="$(npx dotenv -e .env.local -p TEST_DATABASE_URL)" npx drizzle-kit migrate` (test).
 
 ---
 
@@ -719,7 +719,7 @@ export async function recordExampleForEntry(
 
 - [ ] **Step 2:** In the inbox row component, render a small muted badge ("rule" / "learned" / "AI") next to the suggested category. Tokens per DESIGN.md (`text-soft`, etc.); no new design direction. Manual-verify the badge renders and accept/correct still work.
 
-- [ ] **Step 3: Acceptance.** Run full `pnpm test` (all green), `pnpm exec tsc --noEmit`, `pnpm build`. Then a headless end-to-end against `fin_dev` in an isolated, self-cleaning household (mirror `docs/runbooks/phase-2-acceptance.md` style): seed examples, create pending entries, run `categorizeEntries` with the **real** embedder + a stubbed generate, assert T1 suggestions land unlocked; accept one and assert a training example was recorded; run backfill and assert idempotence. Record results in `docs/runbooks/p3a-acceptance.md`. Clean up the household + its `categorization_examples`.
+- [ ] **Step 3: Acceptance.** Run full `pnpm test` (all green), `pnpm exec tsc --noEmit`, `pnpm build`. Then a headless end-to-end against `compound_dev` in an isolated, self-cleaning household (mirror `docs/runbooks/phase-2-acceptance.md` style): seed examples, create pending entries, run `categorizeEntries` with the **real** embedder + a stubbed generate, assert T1 suggestions land unlocked; accept one and assert a training example was recorded; run backfill and assert idempotence. Record results in `docs/runbooks/p3a-acceptance.md`. Clean up the household + its `categorization_examples`.
 
 - [ ] **Step 4: Commit** — `chore: inbox suggestion-source badge + P3a acceptance`.
 

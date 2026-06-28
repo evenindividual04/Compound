@@ -1,7 +1,7 @@
 /**
  * Test database helpers. Suites using this must guard with:
  *   describe.skipIf(!process.env.TEST_DATABASE_URL)
- * The `pnpm test` script loads .env.local, which points at the local fin_test db.
+ * The `pnpm test` script loads .env.local, which points at the local compound_test db.
  */
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";

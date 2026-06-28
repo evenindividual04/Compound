@@ -8,7 +8,7 @@ Date: 2026-06-17 · Branch `build/phase-2-investments` · Spec `docs/superpowers
 - **Typecheck:** `pnpm exec tsc --noEmit` → clean.
 - **Production build:** `pnpm build` → succeeds; routes include `/invest`, `/api/cron/prices`, `/api/cron/invariants`.
 
-## Data-layer acceptance (headless, real Postgres `fin_dev`, isolated household, self-cleaning)
+## Data-layer acceptance (headless, real Postgres `compound_dev`, isolated household, self-cleaning)
 
 A throwaway harness exercised the full P2 data path end-to-end and asserted:
 
@@ -18,7 +18,7 @@ A throwaway harness exercised the full P2 data path end-to-end and asserted:
 4. **All invariants zero** — `runInvariantChecks` returned 0 for every check, including the three P2 additions: `trade_cash_mismatch`, `oversold_holding`, `stale_price`.
 5. **Rebuild-bit-identical (system invariant)** — captured net worth, deleted all `balances` + `rollups` rows, ran `rebuildBalances` + `rebuildRollups`, re-read net worth: **₹15,800 === ₹15,800**. Derived state is reproducible from the ledger.
 
-The harness created an isolated household and tore it down (FK-safe) including any anomalies it generated; `fin_dev` left at 0 anomalies, 0 P2 rows.
+The harness created an isolated household and tore it down (FK-safe) including any anomalies it generated; `compound_dev` left at 0 anomalies, 0 P2 rows.
 
 ### Note: `stale_price` fires correctly (verified incidentally)
 
