@@ -33,6 +33,9 @@ const CreateAccountInput = z.object({
   ]),
   openingBalanceAbs: z.string().regex(/^\d+(\.\d+)?$/, "Must be a non-negative number"),
   openingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Must be YYYY-MM-DD"),
+  // Optional SMS routing key — matches the parser's acctKey (e.g. "SBI:3519",
+  // "ICICI-CC:1004", "LazyPay"). Lets the SMS bridge route messages to this account.
+  smsKey: z.string().trim().min(1).max(64).optional(),
 });
 
 const AddValuationInput = z.object({
@@ -57,6 +60,7 @@ export async function createAccount(raw: unknown): Promise<void> {
       kind: input.kind,
       openingBalance,
       openingDate: input.openingDate,
+      metadata: input.smsKey ? { smsKey: input.smsKey } : {},
     })
     .returning({ id: accounts.id });
 

@@ -24,6 +24,7 @@ export function NewAccountForm({ today }: { today: string }) {
   const [kind, setKind] = useState<string>("bank");
   const [balanceAbs, setBalanceAbs] = useState("0");
   const [openingDate, setOpeningDate] = useState(today);
+  const [smsKey, setSmsKey] = useState("");
 
   const isLiability = (LIABILITY_KINDS as readonly string[]).includes(kind);
   const balanceLabel = isLiability ? "Current amount owed" : "Opening balance";
@@ -32,7 +33,13 @@ export function NewAccountForm({ today }: { today: string }) {
     e.preventDefault();
     startTransition(async () => {
       try {
-        await createAccount({ name, kind, openingBalanceAbs: balanceAbs, openingDate });
+        await createAccount({
+          name,
+          kind,
+          openingBalanceAbs: balanceAbs,
+          openingDate,
+          smsKey: smsKey.trim() || undefined,
+        });
         toast.success("Account created");
         router.push("/accounts");
       } catch (err) {
@@ -103,6 +110,26 @@ export function NewAccountForm({ today }: { today: string }) {
           onChange={(e) => setOpeningDate(e.target.value)}
           required
         />
+      </div>
+
+      {/* SMS routing key (optional) */}
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium text-soft" htmlFor="smsKey">
+          SMS key <span className="text-soft/70">(optional)</span>
+        </label>
+        <Input
+          id="smsKey"
+          value={smsKey}
+          onChange={(e) => setSmsKey(e.target.value)}
+          placeholder="e.g. SBI:3519"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+        />
+        <p className="text-xs text-soft">
+          Routes bank SMS to this account. Format: <code>SBI:&lt;last 4&gt;</code>,{" "}
+          <code>ICICI-CC:&lt;last 4&gt;</code>, or <code>LazyPay</code>.
+        </p>
       </div>
 
       <Button type="submit" className="w-full" disabled={isPending}>
