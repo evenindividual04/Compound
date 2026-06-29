@@ -100,7 +100,7 @@ class TestFetchAndBuildPayload:
         for msg in messages:
             assert set(msg.keys()) == {"sender", "body", "receivedAt"}
             assert msg["sender"] == "AD-SBIUPI"
-            assert msg["receivedAt"].endswith("+00:00") or "Z" in msg["receivedAt"] or "T" in msg["receivedAt"]
+            assert msg["receivedAt"].endswith("+00:00"), f"receivedAt must be UTC (+00:00), got {msg['receivedAt']!r}"
 
     def test_build_payload_row1_plain_text(self, chat_db):
         """Row with plain text field uses text directly."""

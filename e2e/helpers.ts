@@ -1,4 +1,11 @@
 /**
+ * E2E test helpers.
+ *
+ * DB lifecycle: globalSetup (e2e/global-setup.ts) truncates and re-seeds the
+ * compound_e2e database ONCE before the full test run. There is NO per-spec
+ * reset — specs run serially (workers: 1) and each spec uses distinct data
+ * (different amounts, senders, dates) so they do not interfere with each other.
+ *
  * SBI UPI debit SMS fixture.
  * Amount: 525.00 → formatINR("-525.0000") = "−₹525.00"
  * (U+2212 minus, < ₹1,000 threshold → keeps 2 decimal places)

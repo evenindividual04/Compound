@@ -1,12 +1,15 @@
 import { test, expect } from "@playwright/test";
 
 /**
- * Quick-add flow: FAB → drawer → keypad → category → saved.
+ * Quick-add flow: FAB → drawer → keypad → category → saved → ledger entry.
  *
  * No recent categories exist in a fresh DB so the "More…" Select is used
  * to pick "Food & Dining".
  *
- * Verifies: success toast "Saved" appears; the drawer closes.
+ * Verifies:
+ *   1. success toast "Saved" appears
+ *   2. the ₹100 expense entry actually lands in /transactions (ledger write
+ *      confirmed — a toast alone cannot rule out a failed server action)
  */
 test("quick-add drawer records a new expense via the keypad and category select", async ({
   page,
@@ -55,4 +58,10 @@ test("quick-add drawer records a new expense via the keypad and category select"
   // After selecting a category, quickAddAction is called and the drawer closes.
   // The action dispatches a server action; we wait for the success toast.
   await expect(page.getByText("Saved")).toBeVisible({ timeout: 15_000 });
+
+  // Navigate to /transactions to confirm the entry actually landed in the ledger.
+  // formatINR("-100.0000") = "−₹100.00" (U+2212 minus; < ₹1,000 → 2 decimal places).
+  await page.goto("/transactions");
+  // The amount "−₹100.00" uses U+2212 (typographic minus), not ASCII hyphen.
+  await expect(page.getByText("−₹100.00")).toBeVisible({ timeout: 10_000 });
 });
