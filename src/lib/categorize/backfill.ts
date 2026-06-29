@@ -10,14 +10,16 @@ import { and, eq, isNull } from "drizzle-orm";
 import type { Db } from "@/db";
 import * as schema from "@/db/schema";
 import { categorizeEntries, type CategorizeDeps } from "./categorize";
-import { defaultCategorizeDeps } from "./deps";
 
 const BATCH_SIZE = 200;
 
+// `deps` is a required param (no default) so this module never statically
+// imports ./deps, which would pull fastembed (native ONNX) onto any import
+// chain that touches backfill. The caller injects deps (lazily in prod).
 export async function backfillCategories(
   db: Db,
   householdId: string,
-  deps: CategorizeDeps = defaultCategorizeDeps(),
+  deps: CategorizeDeps,
 ): Promise<{ resolved: number; abstained: number; scanned: number }> {
   // Fetch all eligible entry IDs: transaction entries in this household
   // with no category set and not locked.

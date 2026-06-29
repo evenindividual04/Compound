@@ -10,7 +10,9 @@ import { annotate, softDelete } from "@/lib/ledger/write";
 import { afterWrite } from "@/lib/ledger/derive";
 import { setSplits, makeTransferPair } from "@/lib/ledger/edit";
 import { recordExampleForEntry } from "@/lib/categorize/examples";
-import { embed } from "@/lib/categorize/embed";
+// embed pulls fastembed (native ONNX) — load lazily inside the best-effort
+// try/catch only, never at module scope (would crash this action's module on
+// serverless runtimes lacking libonnxruntime).
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -68,9 +70,10 @@ export async function recategorize(
 
     if (categoryId) {
       try {
+        const { embed } = await import("@/lib/categorize/embed");
         await recordExampleForEntry(db, entryId, "correct", embed);
       } catch {
-        // Best-effort: training write failure must never block the recategorize.
+        // Best-effort: training write failure (incl. embedder load) must never block the recategorize.
       }
     }
 

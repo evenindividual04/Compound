@@ -11,7 +11,16 @@ import { evaluateRule, type RuleInput } from "./rules";
 import { annotate } from "./write";
 import { afterWrite } from "./derive";
 import { recordExampleForEntry } from "@/lib/categorize/examples";
-import { embed as realEmbed, type Embedder } from "@/lib/categorize/embed";
+import type { Embedder } from "@/lib/categorize/embed";
+// NOTE: the embedder pulls fastembed (native ONNX). It must NEVER be imported at
+// module load — that would crash any page on this import chain in serverless
+// runtimes (libonnxruntime.so missing). It is resolved lazily, inside best-effort
+// try/catch blocks only, so categorization degrades gracefully where the native
+// lib is absent. Tests inject a mock embedder via the optional `embed` param.
+async function resolveEmbedder(injected?: Embedder): Promise<Embedder> {
+  if (injected) return injected;
+  return (await import("@/lib/categorize/embed")).embed;
+}
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -340,7 +349,7 @@ export async function acceptEntry(
   entryId: string,
   source: string,
   categoryId?: string,
-  embed: Embedder = realEmbed,
+  embed?: Embedder,
 ): Promise<void> {
   // Fetch entry for afterWrite args.
   const [entry] = await db
@@ -362,7 +371,7 @@ export async function acceptEntry(
   await afterWrite(db, { accountId: entry.accountId, householdId: acct.householdId, date: entry.date });
 
   try {
-    await recordExampleForEntry(db, entryId, categoryId ? "correct" : "accept", embed);
+    await recordExampleForEntry(db, entryId, categoryId ? "correct" : "accept", await resolveEmbedder(embed));
   } catch {
     // Best-effort: training write failure must never block the accept.
   }
@@ -375,7 +384,7 @@ export async function acceptAll(
   db: Db,
   entryIds: string[],
   source: string,
-  embed: Embedder = realEmbed,
+  embed?: Embedder,
 ): Promise<void> {
   if (entryIds.length === 0) return;
 
@@ -418,9 +427,9 @@ export async function acceptAll(
       }
     }
     try {
-      await recordExampleForEntry(db, e.id, "accept", embed);
+      await recordExampleForEntry(db, e.id, "accept", await resolveEmbedder(embed));
     } catch {
-      // Best-effort: training write failure must never block the accept.
+      // Best-effort: training write failure (incl. embedder load) must never block the accept.
     }
   }
 }
