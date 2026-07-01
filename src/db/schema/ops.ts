@@ -97,6 +97,13 @@ export const ledgerAnomalies = pgTable("ledger_anomalies", {
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),
 });
 
+export const bridgeHeartbeats = pgTable("bridge_heartbeats", {
+  householdId: uuid("household_id")
+    .primaryKey()
+    .references(() => households.id),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull(),
+});
+
 export const categorizationExamples = pgTable(
   "categorization_examples",
   {

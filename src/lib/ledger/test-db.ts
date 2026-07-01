@@ -18,7 +18,7 @@ export async function resetDb() {
     TRUNCATE TABLE entry_events, rejected_transfers, transfers, transaction_splits,
       entry_tags, valuations, transactions, prices, trades, instruments, entries,
       import_rows, imports, import_configs,
-      rules, budget_allocations, ledger_anomalies, balances, rollups,
+      rules, budget_allocations, ledger_anomalies, bridge_heartbeats, balances, rollups,
       tags, categorization_examples, categories, accounts, users, households CASCADE
   `);
 }
