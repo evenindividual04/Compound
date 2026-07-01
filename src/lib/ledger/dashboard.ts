@@ -6,6 +6,7 @@
 import { sql } from "drizzle-orm";
 import type { Db } from "@/db";
 import { abs } from "@/lib/money";
+import { getBridgeStatus } from "./bridge-status";
 
 // ---------------------------------------------------------------------------
 // monthSpend
@@ -185,6 +186,9 @@ export interface NeedsAttention {
   inbox: number;
   anomalies: number;
   staleAnchors: StaleAnchor[];
+  hasAccounts: boolean;
+  bridgeStatus: "never" | "stale" | "ok";
+  unmappedCount: number;
 }
 
 /**
@@ -257,7 +261,27 @@ export async function needsAttention(
     lastAnchor: r.last_anchor ?? null,
   }));
 
-  return { inbox, anomalies, staleAnchors };
+  // Accounts existence — drives the "No accounts yet" onboarding card.
+  const accountsRes = await db.execute(sql`
+    SELECT COUNT(*)::int AS cnt FROM accounts WHERE household_id = ${householdId}::uuid
+  `);
+  const hasAccounts =
+    Number((accountsRes as unknown as { rows: { cnt: number }[] }).rows[0].cnt) > 0;
+
+  // SMS sync status — drives "Connect SMS sync" / "hasn't checked in" cards.
+  const { status: bridgeStatus } = await getBridgeStatus(db, householdId);
+
+  // Open sms_unmapped anomalies specifically (the generic `anomalies` count above
+  // includes sms_unparsed and any other future anomaly kind).
+  const unmappedRes = await db.execute(sql`
+    SELECT COUNT(*)::int AS cnt FROM ledger_anomalies
+    WHERE kind = 'sms_unmapped' AND resolved_at IS NULL
+  `);
+  const unmappedCount = Number(
+    (unmappedRes as unknown as { rows: { cnt: number }[] }).rows[0].cnt,
+  );
+
+  return { inbox, anomalies, staleAnchors, hasAccounts, bridgeStatus, unmappedCount };
 }
 
 // ---------------------------------------------------------------------------

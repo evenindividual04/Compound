@@ -211,6 +211,35 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("dashboard queries", () => {
       const result = await needsAttention(tdb, seeds.hh.id);
       expect(result.anomalies).toBeGreaterThanOrEqual(1);
     });
+
+    it("reports hasAccounts=false for a household with no accounts", async () => {
+      const [bareHousehold] = await tdb
+        .insert(schema.households)
+        .values({ name: "bare" })
+        .returning();
+      const result = await needsAttention(tdb, bareHousehold.id);
+      expect(result.hasAccounts).toBe(false);
+    });
+
+    it("reports hasAccounts=true once seedBasics has run", async () => {
+      const result = await needsAttention(tdb, seeds.hh.id);
+      expect(result.hasAccounts).toBe(true);
+    });
+
+    it("reports bridgeStatus='never' with no heartbeat row", async () => {
+      const result = await needsAttention(tdb, seeds.hh.id);
+      expect(result.bridgeStatus).toBe("never");
+    });
+
+    it("counts open sms_unmapped anomalies in unmappedCount", async () => {
+      await tdb.insert(schema.ledgerAnomalies).values({
+        kind: "sms_unmapped",
+        detailHash: "test-hash-1",
+        detail: { acctKey: "SBI:9999" },
+      });
+      const result = await needsAttention(tdb, seeds.hh.id);
+      expect(result.unmappedCount).toBe(1);
+    });
   });
 
   // ── recentTransactions ─────────────────────────────────────────────────────
