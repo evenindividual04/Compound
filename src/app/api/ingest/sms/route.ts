@@ -31,7 +31,7 @@ const RawSmsSchema = z.object({
   body: z.string().min(1),
   receivedAt: z.string().min(1),
 });
-const BodySchema = z.object({ messages: z.array(RawSmsSchema).min(1).max(500) });
+const BodySchema = z.object({ messages: z.array(RawSmsSchema).min(0).max(500) });
 
 /** Mirrors invariants.ts insertAnomalies: dedup by canonical-hash, skip if an open row exists. */
 async function recordAnomaly(kind: string, detail: Record<string, unknown>): Promise<void> {
@@ -69,6 +69,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "No household" }, { status: 500 });
     }
     const householdId = hh.id;
+
+    // Heartbeat: refresh on every authenticated call, including empty-messages
+    // pings. Best-effort — a missed heartbeat is cosmetic, must never fail ingestion.
+    try {
+      await db.execute(sql`
+        INSERT INTO bridge_heartbeats (household_id, last_seen_at)
+        VALUES (${householdId}::uuid, now())
+        ON CONFLICT (household_id) DO UPDATE SET last_seen_at = now()
+      `);
+    } catch {
+      // best-effort — see comment above
+    }
 
     const { parsed, unparsed } = parseSmsRows(body.messages);
 
@@ -128,6 +140,9 @@ export async function POST(req: Request) {
         template: p.template,
         amount: p.row.amount,
         date: p.row.date,
+        sender: p.raw.sender,
+        body: p.raw.body,
+        receivedAt: p.raw.receivedAt,
       });
     }
 

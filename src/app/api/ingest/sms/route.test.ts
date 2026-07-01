@@ -37,9 +37,18 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("POST /api/ingest/sms", () => {
     expect(res.status).toBe(401);
   });
 
-  it("rejects a malformed body with 400", async () => {
-    const res = await POST(req({ messages: [] }));
+  it("rejects a body missing the messages field with 400", async () => {
+    const res = await POST(req({}));
     expect(res.status).toBe(400);
+  });
+
+  it("accepts an empty messages array as a heartbeat-only ping", async () => {
+    await seedBasics();
+    const res = await POST(req({ messages: [] }));
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.ok).toBe(true);
+    expect(json.committed).toBe(0);
   });
 
   it("parses a known SBI SMS, resolves the account by smsKey, and commits a pending entry", async () => {
@@ -96,6 +105,33 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("POST /api/ingest/sms", () => {
       .from(schema.ledgerAnomalies)
       .where(eq(schema.ledgerAnomalies.kind, "sms_unmapped"));
     expect(anomalies.length).toBe(1);
+  });
+
+  it("upserts a bridge_heartbeats row on every authenticated call, including empty batches", async () => {
+    const { hh } = await seedBasics();
+    await POST(req({ messages: [] }));
+
+    const [hb] = await tdb
+      .select()
+      .from(schema.bridgeHeartbeats)
+      .where(eq(schema.bridgeHeartbeats.householdId, hh.id));
+    expect(hb).toBeDefined();
+    expect(hb.lastSeenAt).toBeInstanceOf(Date);
+  });
+
+  it("stores raw sender/body/receivedAt on a sms_unmapped anomaly, not just the parsed fields", async () => {
+    await seedBasics(); // no account has smsKey "SBI:3519"
+    await POST(
+      req({ messages: [{ sender: "AD-SBIUPI", body: SBI, receivedAt: "2026-06-05T10:00:00Z" }] }),
+    );
+    const [anomaly] = await tdb
+      .select()
+      .from(schema.ledgerAnomalies)
+      .where(eq(schema.ledgerAnomalies.kind, "sms_unmapped"));
+    const detail = anomaly.detail as Record<string, unknown>;
+    expect(detail.sender).toBe("AD-SBIUPI");
+    expect(detail.body).toBe(SBI);
+    expect(detail.receivedAt).toBe("2026-06-05T10:00:00Z");
   });
 
   it("dedupes a re-sent identical SMS (second post commits nothing new)", async () => {

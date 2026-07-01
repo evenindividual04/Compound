@@ -38,6 +38,9 @@ describe("parseSmsRows — T1 SBI UPI debit", () => {
     expect(p.row.externalId).toBe("207781447224"); // gold dedup key
     expect(p.row.balance).toBeUndefined();
     expect(p.dueDate).toBeUndefined();
+    expect(p.raw.sender).toBe("AD-SBIUPI");
+    expect(p.raw.body).toContain("A/C X3519 debited");
+    expect(p.raw.receivedAt).toBe("2026-06-05T13:20:00.000Z");
   });
 });
 

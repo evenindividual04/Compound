@@ -26,6 +26,7 @@ export interface ParsedSms {
   template: string; // template id, for traceability
   row: NormalizedRow; // date, signed-4dp amount, description, externalId?
   dueDate?: string; // yyyy-MM-dd — BNPL/CC "pay by" (surfaced later; see open question §11.2)
+  raw: RawSms; // the original message — lets a later "resolve this anomaly" action re-parse
 }
 
 export interface SmsParseResult {
@@ -121,6 +122,7 @@ const T1_SBI_UPI: Template = (sms) => {
       description: normalizeMerchant(merchant),
       externalId: refno,
     },
+    raw: sms,
   };
 };
 
@@ -142,6 +144,7 @@ const T2_ICICI_CC: Template = (sms) => {
       description: normalizeMerchant(merchant),
       // no externalId; "Avl Limit" is NOT a running balance → balance omitted (§7)
     },
+    raw: sms,
   };
 };
 
@@ -162,6 +165,7 @@ const T3_LAZYPAY: Template = (sms) => {
       // no externalId (BNPL txnId doesn't reconcile to the statement → hash dedup, §7)
     },
     dueDate: parseDueDate(dueRaw),
+    raw: sms,
   };
 };
 
