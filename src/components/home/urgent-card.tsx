@@ -92,7 +92,8 @@ export function UrgentCards({ attention }: UrgentCardProps) {
               Setup
             </p>
             <p className="text-[13px] font-semibold text-ink leading-snug">
-              {attention.unmappedCount} message{attention.unmappedCount === 1 ? "" : "s"} need an account
+              {attention.unmappedCount} message{attention.unmappedCount === 1 ? "" : "s"}{" "}
+              {attention.unmappedCount === 1 ? "needs" : "need"} an account
             </p>
           </div>
           <span className="text-[11px] font-semibold text-coral pr-4">Assign them →</span>
