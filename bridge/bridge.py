@@ -303,7 +303,7 @@ def build_payload(rows: list[dict]) -> tuple[list[dict], int]:
 
 MAX_RETRIES = 3
 RETRY_DELAYS = [2, 5, 15]  # seconds
-POST_TIMEOUT = 15  # seconds
+POST_TIMEOUT = 60  # seconds — large batches trigger server-side categorization, which is slow
 
 
 def post_messages(
@@ -331,6 +331,11 @@ def post_messages(
                 time.sleep(delay)
         except urllib.error.URLError as exc:
             logging.warning("POST URLError (attempt %d/%d): %s", attempt, MAX_RETRIES, exc.reason)
+            if attempt < MAX_RETRIES:
+                time.sleep(delay)
+        except OSError as exc:
+            # Raw socket timeouts during response read aren't wrapped as URLError.
+            logging.warning("POST OSError (attempt %d/%d): %s", attempt, MAX_RETRIES, exc)
             if attempt < MAX_RETRIES:
                 time.sleep(delay)
     return False
