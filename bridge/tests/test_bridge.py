@@ -384,6 +384,106 @@ class TestNormalPost:
 # Unit tests for pure helper functions
 # ---------------------------------------------------------------------------
 
+class TestHeartbeatThrottle:
+    def test_sends_heartbeat_on_first_empty_tick(self, chat_db, tmp_path, monkeypatch):
+        """Cursor already at max_rowid (no new rows) and no heartbeat file yet
+        — one empty-messages POST goes out."""
+        cursor_path = tmp_path / "cursor.json"
+        cursor_path.write_text(json.dumps({"last_rowid": 3}))  # past all 3 fixture rows
+        monkeypatch.setattr(bridge_mod, "CURSOR_FILE", cursor_path)
+        monkeypatch.setattr(bridge_mod, "BRIDGE_DIR", tmp_path)
+        monkeypatch.setattr(bridge_mod, "CHAT_DB_PATH", chat_db)
+        monkeypatch.setattr(bridge_mod, "HEARTBEAT_FILE", tmp_path / "heartbeat.json")
+
+        urlopen_calls: list[Any] = []
+
+        def fake_urlopen(req, timeout=None):
+            urlopen_calls.append(req)
+            return _make_urlopen_mock()
+
+        cfg = {"ingest_url": "http://localhost:3000", "ingest_secret": "test-secret"}
+        with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            bridge_mod.run_tick(cfg, dry_run=False)
+
+        assert len(urlopen_calls) == 1
+        body = json.loads(urlopen_calls[0].data)
+        assert body["messages"] == []
+
+    def test_skips_heartbeat_within_throttle_window(self, chat_db, tmp_path, monkeypatch):
+        """A heartbeat was just sent — a second empty tick within 5 minutes sends nothing."""
+        cursor_path = tmp_path / "cursor.json"
+        cursor_path.write_text(json.dumps({"last_rowid": 3}))
+        monkeypatch.setattr(bridge_mod, "CURSOR_FILE", cursor_path)
+        monkeypatch.setattr(bridge_mod, "BRIDGE_DIR", tmp_path)
+        monkeypatch.setattr(bridge_mod, "CHAT_DB_PATH", chat_db)
+        monkeypatch.setattr(bridge_mod, "HEARTBEAT_FILE", tmp_path / "heartbeat.json")
+        bridge_mod._write_heartbeat_sent(time.time())  # just sent
+
+        urlopen_calls: list[Any] = []
+
+        def fake_urlopen(req, timeout=None):
+            urlopen_calls.append(req)
+            return _make_urlopen_mock()
+
+        cfg = {"ingest_url": "http://localhost:3000", "ingest_secret": "test-secret"}
+        with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            bridge_mod.run_tick(cfg, dry_run=False)
+
+        assert urlopen_calls == []
+
+    def test_real_messages_post_immediately_regardless_of_throttle(self, chat_db, tmp_path, monkeypatch):
+        """Financial messages are found — POST goes out even inside the throttle window."""
+        cursor_path = tmp_path / "cursor.json"
+        cursor_path.write_text(json.dumps({"last_rowid": 0}))  # sees all 3 fixture rows (2 financial)
+        monkeypatch.setattr(bridge_mod, "CURSOR_FILE", cursor_path)
+        monkeypatch.setattr(bridge_mod, "BRIDGE_DIR", tmp_path)
+        monkeypatch.setattr(bridge_mod, "CHAT_DB_PATH", chat_db)
+        monkeypatch.setattr(bridge_mod, "HEARTBEAT_FILE", tmp_path / "heartbeat.json")
+        bridge_mod._write_heartbeat_sent(time.time())  # just sent — should not matter
+
+        urlopen_calls: list[Any] = []
+
+        def fake_urlopen(req, timeout=None):
+            urlopen_calls.append(req)
+            return _make_urlopen_mock()
+
+        cfg = {"ingest_url": "http://localhost:3000", "ingest_secret": "test-secret"}
+        with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            bridge_mod.run_tick(cfg, dry_run=False)
+
+        assert len(urlopen_calls) == 1
+        body = json.loads(urlopen_calls[0].data)
+        assert len(body["messages"]) == 2  # both financial rows (ROWID 1 and 2) from the chat_db fixture
+
+    def test_sends_heartbeat_when_rows_exist_but_none_are_financial(self, chat_db, tmp_path, monkeypatch):
+        """Rows were fetched (not an empty tick) but all filtered out as personal
+        — a busy phone with no financial SMS must still count as 'working', so a
+        heartbeat still goes out (this is the gap a naive 'only heartbeat when
+        zero rows fetched' implementation would miss)."""
+        cursor_path = tmp_path / "cursor.json"
+        cursor_path.write_text(json.dumps({"last_rowid": 2}))  # only ROWID 3 (personal) remains
+        monkeypatch.setattr(bridge_mod, "CURSOR_FILE", cursor_path)
+        monkeypatch.setattr(bridge_mod, "BRIDGE_DIR", tmp_path)
+        monkeypatch.setattr(bridge_mod, "CHAT_DB_PATH", chat_db)
+        monkeypatch.setattr(bridge_mod, "HEARTBEAT_FILE", tmp_path / "heartbeat.json")
+
+        urlopen_calls: list[Any] = []
+
+        def fake_urlopen(req, timeout=None):
+            urlopen_calls.append(req)
+            return _make_urlopen_mock()
+
+        cfg = {"ingest_url": "http://localhost:3000", "ingest_secret": "test-secret"}
+        with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            bridge_mod.run_tick(cfg, dry_run=False)
+
+        assert len(urlopen_calls) == 1
+        body = json.loads(urlopen_calls[0].data)
+        assert body["messages"] == []
+        saved = json.loads(cursor_path.read_text())
+        assert saved["last_rowid"] == 3, "cursor must still advance past the filtered personal row"
+
+
 class TestHelpers:
     def test_is_financial_sender_dlt_header(self):
         assert bridge_mod.is_financial_sender("AD-SBIUPI") is True

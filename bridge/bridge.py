@@ -45,6 +45,8 @@ from typing import Optional
 
 BRIDGE_DIR = Path.home() / ".compound-sms-bridge"
 CURSOR_FILE = BRIDGE_DIR / "cursor.json"
+HEARTBEAT_FILE = BRIDGE_DIR / "heartbeat.json"
+HEARTBEAT_THROTTLE_S = 5 * 60  # 5 minutes
 LOG_FILE = BRIDGE_DIR / "bridge.log"
 CONFIG_FILE = BRIDGE_DIR / "config.json"
 
@@ -202,6 +204,20 @@ def write_cursor(rowid: int) -> None:
     BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
     with CURSOR_FILE.open("w") as f:
         json.dump({"last_rowid": rowid}, f)
+
+
+def _read_heartbeat_sent() -> float:
+    """Return the unix timestamp of the last heartbeat-only POST, or 0.0 if none."""
+    if HEARTBEAT_FILE.exists():
+        with HEARTBEAT_FILE.open() as f:
+            return float(json.load(f).get("last_heartbeat_sent", 0.0))
+    return 0.0
+
+
+def _write_heartbeat_sent(ts: float) -> None:
+    BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
+    with HEARTBEAT_FILE.open("w") as f:
+        json.dump({"last_heartbeat_sent": ts}, f)
 
 
 def init_cursor_from_db(conn: sqlite3.Connection, backfill_days: Optional[int]) -> int:
@@ -374,29 +390,47 @@ def run_tick(cfg: dict, dry_run: bool = False) -> None:
             return
 
         rows = fetch_new_messages(conn, cursor)
-        if not rows:
-            logging.debug("No new messages since ROWID %d", cursor)
-            return
-
-        messages, max_rowid = build_payload(rows)
-        logging.info(
-            "Rows fetched: %d | Financial: %d | Max ROWID: %d",
-            len(rows),
-            len(messages),
-            max_rowid,
+        messages, max_rowid = (
+            build_payload(rows) if rows else ([], cursor)
         )
+        if rows:
+            logging.info(
+                "Rows fetched: %d | Financial: %d | Max ROWID: %d",
+                len(rows),
+                len(messages),
+                max_rowid,
+            )
+        else:
+            logging.debug("No new messages since ROWID %d", cursor)
 
         if dry_run:
-            _print_dry_run(rows, messages)
+            if rows:
+                _print_dry_run(rows, messages)
             return
 
+        secret = cfg.get("ingest_secret", "")
+        base_url = cfg.get("ingest_url", "http://localhost:3000")
+
         if messages:
-            secret = cfg.get("ingest_secret", "")
-            base_url = cfg.get("ingest_url", "http://localhost:3000")
+            # Real messages found — POST immediately, ignoring the heartbeat throttle.
             ok = post_messages(base_url, secret, messages)
             if not ok:
                 logging.error("POST failed; cursor NOT advanced (will retry next tick)")
                 return
+            _write_heartbeat_sent(time.time())
+        else:
+            # No financial messages this tick — either no rows at all, or rows
+            # that were all filtered out (personal numbers). Either way, send a
+            # throttled heartbeat-only ping so the server can tell "never
+            # connected" from "connected, nothing to report" — a busy phone with
+            # no financial SMS must still count as "the bridge is working".
+            last_sent = _read_heartbeat_sent()
+            if time.time() - last_sent >= HEARTBEAT_THROTTLE_S:
+                post_messages(base_url, secret, [])
+                _write_heartbeat_sent(time.time())
+            if not rows:
+                return  # nothing to advance the cursor past
+
         # Advance cursor regardless — even rows filtered as personal advance the pointer
         write_cursor(max_rowid)
         logging.info("Cursor advanced to ROWID %d", max_rowid)
