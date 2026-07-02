@@ -16,6 +16,7 @@ import {
   FileText,
   Shield,
   Star,
+  Cable,
 } from "lucide-react";
 import { db } from "@/db";
 import { requireHousehold } from "@/lib/current";
@@ -93,6 +94,11 @@ export default async function BrowsePage() {
             icon={<ArrowLeftRight {...ICON_PROPS} />}
             label="Accounts"
             href="/accounts"
+          />
+          <ModuleRow
+            icon={<Cable {...ICON_PROPS} />}
+            label="Setup"
+            href="/browse/setup"
           />
           <ModuleRow
             icon={<TrendingUp {...ICON_PROPS} />}
