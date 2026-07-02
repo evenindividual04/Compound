@@ -2,14 +2,18 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { eq, and, isNull, desc } from "drizzle-orm";
 import { formatDistanceToNow } from "date-fns";
+import { headers } from "next/headers";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { requireHousehold } from "@/lib/current";
 import { getBridgeStatus } from "@/lib/ledger/bridge-status";
 import { UnmappedRow } from "@/components/setup/unmapped-row";
+import { InstallCommand } from "@/components/setup/install-command";
 
 export default async function SetupPage() {
   const { householdId } = await requireHousehold();
+  const headersList = await headers();
+  const origin = headersList.get("origin") ?? `https://${headersList.get("host")}`;
 
   const [{ status, lastSeenAt }, accounts, unmapped, unparsed] = await Promise.all([
     getBridgeStatus(db, householdId),
@@ -57,9 +61,23 @@ export default async function SetupPage() {
         <div className="rounded-2xl border border-hairline bg-surface p-4">
           <p className="text-sm text-ink mb-2">{statusLabel}</p>
           {status !== "ok" && (
-            <p className="text-xs text-soft">
-              This lets the sync tool read your Messages app, where your bank texts land.
-            </p>
+            <>
+              <p className="text-xs text-soft mb-3">
+                This lets the sync tool read your Messages app, where your bank texts land.
+                Paste this into Terminal on your Mac:
+              </p>
+              <InstallCommand origin={origin} secret={process.env.INGEST_SECRET ?? ""} />
+              <p className="text-xs text-soft mt-3">
+                Two more steps, both one-time and manual — no command can do these for you:
+              </p>
+              <ol className="text-xs text-soft list-decimal list-inside mt-1 space-y-1">
+                <li>On your iPhone: Settings → Messages → Text Message Forwarding → enable this Mac.</li>
+                <li>
+                  On your Mac: System Settings → Privacy &amp; Security → Full Disk Access → add{" "}
+                  <code>/usr/bin/python3</code>.
+                </li>
+              </ol>
+            </>
           )}
         </div>
       </section>

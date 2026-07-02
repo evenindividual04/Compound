@@ -29,25 +29,17 @@ The bridge does **not** parse transactions. All parsing happens server-side.
 After this, SMS (green-bubble) messages arrive in macOS Messages and land in
 `~/Library/Messages/chat.db`.
 
-### 2. Create the config directory and secret
+### 2. Run the installer
+
+From your Compound app's **Setup** page (Browse → Setup), copy the ready-made command
+and paste it into Terminal. It looks like:
 
 ```bash
-mkdir -p ~/.compound-sms-bridge
-cp /Users/anmolsen/Developer/fin/bridge/config.example.json \
-   ~/.compound-sms-bridge/config.json
-# Edit the file and set your INGEST_SECRET:
-nano ~/.compound-sms-bridge/config.json
+curl -fsSL https://your-instance.vercel.app/bridge/install.sh | INGEST_URL=https://your-instance.vercel.app INGEST_SECRET=<your secret> bash
 ```
 
-The config file takes two keys:
-
-| Key | Default | Description |
-|---|---|---|
-| `ingest_url` | `http://localhost:3000` | Base URL of the Compound app |
-| `ingest_secret` | _(required)_ | Bearer token for POST auth |
-
-You can also set these as environment variables (`INGEST_URL`, `INGEST_SECRET`);
-env vars override the file.
+This downloads `bridge.py`, writes `~/.compound-sms-bridge/config.json`, and installs +
+loads the launchd agent — no manual file editing.
 
 ### 3. Grant Full Disk Access to Terminal (required)
 
@@ -107,32 +99,6 @@ BACKFILL_DAYS=30 python3 /Users/anmolsen/Developer/fin/bridge/bridge.py --dry-ru
 
 Remove `--dry-run` to actually POST them.  This only affects the very first run
 (before a cursor file exists).
-
----
-
-## Installing the launchd agent
-
-The bridge is designed to run as a launchd **user agent** — macOS re-runs the
-script every 60 seconds automatically.
-
-```bash
-# 1. Copy the plist to your user LaunchAgents directory
-cp /Users/anmolsen/Developer/fin/bridge/com.compound.sms-bridge.plist \
-   ~/Library/LaunchAgents/
-
-# 2. Load (starts immediately and persists across reboots)
-launchctl load ~/Library/LaunchAgents/com.compound.sms-bridge.plist
-
-# 3. Verify it is running
-launchctl list | grep compound
-
-# To stop and unload:
-launchctl unload ~/Library/LaunchAgents/com.compound.sms-bridge.plist
-```
-
-> **Plist python path**: the default plist uses `/usr/bin/python3`.  If you use
-> a venv, edit `ProgramArguments` to point to your venv's python binary before
-> loading.
 
 ---
 
