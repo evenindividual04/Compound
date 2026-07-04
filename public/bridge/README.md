@@ -38,7 +38,7 @@ and paste it into Terminal. It looks like:
 curl -fsSL https://your-instance.vercel.app/bridge/install.sh | INGEST_URL=https://your-instance.vercel.app INGEST_SECRET=<your secret> bash
 ```
 
-This downloads `bridge.py`, writes `~/.compound-sms-bridge/config.json`, and installs +
+This downloads `bridge.py`, writes `~/.compound-sms-bridge/config.json`, and installs and
 loads the launchd agent — no manual file editing.
 
 ### 3. Grant Full Disk Access to Terminal (required)

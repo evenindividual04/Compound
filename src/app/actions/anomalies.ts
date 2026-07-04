@@ -68,6 +68,7 @@ export async function resolveUnmappedAnomaly(
 
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Unknown error" };
+    console.error("resolveUnmappedAnomaly failed:", err);
+    return { ok: false, error: "Couldn't resolve this message. Try again or check the logs." };
   }
 }

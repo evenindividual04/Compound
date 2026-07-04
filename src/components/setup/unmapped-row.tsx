@@ -55,7 +55,7 @@ export function UnmappedRow({ anomalyId, date, amount, acctKey, accounts }: Unma
         <span className="tnum">{formatINR(amount)}</span>
         <span className="text-soft"> · {date} · {acctKey}</span>
       </div>
-      <Select value={accountId} onValueChange={(v) => { if (v !== null) setAccountId(v); }}>
+      <Select value={accountId} onValueChange={(v) => setAccountId(v ?? "")}>
         <SelectTrigger className="w-[140px]">
           <SelectValue placeholder="Account" />
         </SelectTrigger>

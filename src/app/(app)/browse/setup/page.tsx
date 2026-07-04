@@ -13,6 +13,8 @@ import { InstallCommand } from "@/components/setup/install-command";
 export default async function SetupPage() {
   const { householdId } = await requireHousehold();
   const headersList = await headers();
+  // `origin` is absent on top-level document GETs; Vercel sets `host` to the
+  // public domain, so this almost always falls through to the `host` branch.
   const origin = headersList.get("origin") ?? `https://${headersList.get("host")}`;
 
   const [{ status, lastSeenAt }, accounts, unmapped, unparsed] = await Promise.all([
